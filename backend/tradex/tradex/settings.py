@@ -18,7 +18,7 @@ DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 ALLOWED_HOSTS = [
     h.strip() for h in os.environ.get(
         'ALLOWED_HOSTS',
-        's24tx.com,www.s24tx.com,localhost,127.0.0.1',
+        's24tx.com,www.s24tx.com,.onrender.com,localhost,127.0.0.1',
     ).split(',') if h.strip()
 ]
 
