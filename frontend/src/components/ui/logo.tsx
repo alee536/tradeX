@@ -19,7 +19,7 @@ export function Logo({ showText = true, size = 'md' }: LogoProps) {
   return (
     <div className="flex items-center gap-2">
       <img
-        src="/logo.png"
+        src={`${import.meta.env.BASE_URL}logo.png`}
         alt="TRADEX Logo"
         className={`${sizeClasses[size]} shrink-0`}
       />
