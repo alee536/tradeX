@@ -5,15 +5,15 @@ interface LogoProps {
 
 export function Logo({ showText = true, size = 'md' }: LogoProps) {
   const sizeClasses = {
-    sm: 'w-6 h-6',
-    md: 'w-8 h-8',
-    lg: 'w-10 h-10',
+    sm: 'w-9 h-9',
+    md: 'w-12 h-12',
+    lg: 'w-16 h-16',
   };
 
   const textSize = {
-    sm: 'text-sm',
-    md: 'text-base',
-    lg: 'text-lg',
+    sm: 'text-base',
+    md: 'text-lg',
+    lg: 'text-xl',
   };
 
   return (
@@ -21,7 +21,7 @@ export function Logo({ showText = true, size = 'md' }: LogoProps) {
       <img
         src={`${import.meta.env.BASE_URL}logo.png`}
         alt="TRADEX Logo"
-        className={`${sizeClasses[size]} shrink-0`}
+        className={`${sizeClasses[size]} shrink-0 object-contain`}
       />
       {showText && (
         <span className={`text-white font-bold ${textSize[size]}`}>
