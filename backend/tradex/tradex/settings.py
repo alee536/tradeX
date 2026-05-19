@@ -124,7 +124,8 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = PROJECT_ROOT / 'staticfiles'
 STATICFILES_DIRS = [PROJECT_ROOT / 'static']
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Manifest storage renames hashed files; Vite index.html uses fixed paths — use non-manifest storage.
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 _media_root = os.environ.get('MEDIA_ROOT', '').strip()
