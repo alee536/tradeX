@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { useLogin } from "@workspace/api-client-react";
@@ -35,9 +35,15 @@ const stats = [
 export default function Login() {
   const [, setLocation] = useLocation();
   const [showPass, setShowPass] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const loginMutation = useLogin();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/user/dashboard");
+    }
+  }, [isAuthenticated, setLocation]);
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),

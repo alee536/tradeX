@@ -63,9 +63,15 @@ export default function Register() {
   const [, setLocation] = useLocation();
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
   const registerMutation = useRegister();
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLocation("/user/dashboard");
+    }
+  }, [isAuthenticated, setLocation]);
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),

@@ -124,9 +124,7 @@ function App() {
         <AuthProvider>
           <WouterRouter base="">
             <Switch>
-              <Route path="/">
-                <ProtectedRoute component={Home} />
-              </Route>
+              <Route path="/" component={Home} />
               <Router />
             </Switch>
           </WouterRouter>

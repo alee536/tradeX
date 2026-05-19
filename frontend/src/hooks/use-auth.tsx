@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
     localStorage.removeItem("24tradex_token");
     localStorage.removeItem("24tradex_user");
-    window.location.href = "/";
+    window.location.href = "/login";
   };
 
   return (
