@@ -4,11 +4,20 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
+_ensure_dir() {
+  local dir="$1"
+  [ -z "$dir" ] && return 0
+  mkdir -p "$dir" 2>/dev/null || {
+    echo "WARNING: Cannot create '${dir}'. Unset DATABASE_PATH/MEDIA_ROOT on Free tier."
+    return 0
+  }
+}
+
 if [ -n "${DATABASE_PATH:-}" ]; then
-  mkdir -p "$(dirname "$DATABASE_PATH")"
+  _ensure_dir "$(dirname "$DATABASE_PATH")"
 fi
 if [ -n "${MEDIA_ROOT:-}" ]; then
-  mkdir -p "$MEDIA_ROOT"
+  _ensure_dir "$MEDIA_ROOT"
 fi
 
 cd "$ROOT/backend"
