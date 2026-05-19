@@ -20,6 +20,8 @@ if [ -n "${MEDIA_ROOT:-}" ]; then
   _ensure_dir "$MEDIA_ROOT"
 fi
 
+# manage.py adds backend/tradex to sys.path; gunicorn needs the same
+export PYTHONPATH="${ROOT}/backend/tradex${PYTHONPATH:+:${PYTHONPATH}}"
 cd "$ROOT/backend"
 exec gunicorn tradex.wsgi:application \
   --bind "0.0.0.0:${PORT:-8000}" \
