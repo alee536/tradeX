@@ -39,6 +39,7 @@ db.sqlite3-journal
 /media
 /staticfiles
 .env
+.env.render.upload
 
 # ============ NODE.JS / FRONTEND ============
 node_modules/
