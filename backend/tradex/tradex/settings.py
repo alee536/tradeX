@@ -15,7 +15,12 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-24tradex-dev-secret-k
 
 DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 's24tx.com,www.s24tx.com,localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = [
+    h.strip() for h in os.environ.get(
+        'ALLOWED_HOSTS',
+        's24tx.com,www.s24tx.com,localhost,127.0.0.1',
+    ).split(',') if h.strip()
+]
 
 INSTALLED_APPS = [
     'apps.admin_dashboard',
@@ -71,10 +76,20 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'tradex.wsgi.application'
 
+def _resolve_sqlite_path() -> Path:
+    """SQLite path: use DATABASE_PATH on Render persistent disk, else local db.sqlite3."""
+    database_path = os.environ.get('DATABASE_PATH', '').strip()
+    if database_path:
+        return Path(database_path)
+    db_name = os.environ.get('DB_NAME', 'db.sqlite3')
+    path = Path(db_name)
+    return path if path.is_absolute() else BASE_DIR / path
+
+
 DATABASES = {
     'default': {
         'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': BASE_DIR / os.environ.get('DB_NAME', 'db.sqlite3'),
+        'NAME': _resolve_sqlite_path(),
     }
 }
 
@@ -96,7 +111,8 @@ STATICFILES_DIRS = [PROJECT_ROOT / 'static']
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = PROJECT_ROOT / 'media'
+_media_root = os.environ.get('MEDIA_ROOT', '').strip()
+MEDIA_ROOT = Path(_media_root) if _media_root else PROJECT_ROOT / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -122,10 +138,30 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 20,
 }
 
-CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+_cors_allowed = os.environ.get('CORS_ALLOWED_ORIGINS', '').strip()
+if _cors_allowed:
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_allowed.split(',') if o.strip()]
+else:
+    CORS_ALLOW_ALL_ORIGINS = os.environ.get('CORS_ALLOW_ALL_ORIGINS', 'True') == 'True'
 
 JWT_SECRET = os.environ.get('JWT_SECRET', SECRET_KEY)
-JWT_EXPIRY_HOURS = 24 * 7
+JWT_EXPIRY_HOURS = int(os.environ.get('JWT_EXPIRY_HOURS', str(24 * 7)))
 
 SITE_URL = os.environ.get('SITE_URL', 'https://24tradex.com')
+
+# Production security (Render terminates SSL — trust X-Forwarded-Proto)
+if not DEBUG:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = os.environ.get('SECURE_SSL_REDIRECT', 'True') == 'True'
+    SESSION_COOKIE_SECURE = os.environ.get('SESSION_COOKIE_SECURE', 'True') == 'True'
+    CSRF_COOKIE_SECURE = os.environ.get('CSRF_COOKIE_SECURE', 'True') == 'True'
+    _hsts = os.environ.get('SECURE_HSTS_SECONDS', '31536000')
+    SECURE_HSTS_SECONDS = int(_hsts) if _hsts else 0
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+_csrf_trusted = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
+if _csrf_trusted:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted.split(',') if o.strip()]

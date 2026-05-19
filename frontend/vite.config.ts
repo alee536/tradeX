@@ -4,7 +4,8 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 
 const port = Number(process.env.PORT || 5173);
-const basePath = "/static/frontend/";
+// Dev: serve from /. Production build: Django serves assets under /static/frontend/
+const basePath = process.env.NODE_ENV === "production" ? "/static/frontend/" : "/";
 
 export default defineConfig({
   base: basePath,
