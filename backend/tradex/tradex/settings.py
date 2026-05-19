@@ -5,14 +5,17 @@ from dotenv import load_dotenv
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-FRONTEND_DIR = BASE_DIR.parent.parent / 'frontend'
-FRONTEND_DIST_DIR = FRONTEND_DIR / 'dist' / 'public'
+PROJECT_ROOT = BASE_DIR.parent
+FRONTEND_DIR = PROJECT_ROOT.parent / 'frontend'
+FRONTEND_DIST_DIR = FRONTEND_DIR / 'dist'
+
+load_dotenv(dotenv_path=PROJECT_ROOT / '.env')
 
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-24tradex-dev-secret-key-change-in-production')
 
-DEBUG = os.environ.get('DEBUG', 'True') == 'True'
+DEBUG = os.environ.get('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 's24tx.com,www.s24tx.com,localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'apps.admin_dashboard',
@@ -39,6 +42,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -52,9 +56,7 @@ ROOT_URLCONF = 'tradex.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        # Include frontend build output so Django can serve the SPA index.html
-        # Also include a project-level templates folder for Django-rendered pages.
-        'DIRS': [str(FRONTEND_DIST_DIR), str(BASE_DIR / 'templates')],
+        'DIRS': [str(PROJECT_ROOT / 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -71,8 +73,8 @@ WSGI_APPLICATION = 'tradex.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
+        'NAME': BASE_DIR / os.environ.get('DB_NAME', 'db.sqlite3'),
     }
 }
 
@@ -88,13 +90,13 @@ TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
 
-STATIC_URL = '/api/static/'
-STATIC_ROOT = BASE_DIR / 'staticfiles'
-# Include frontend build assets in staticfiles search path (Vite outputs to dist/assets)
-STATICFILES_DIRS = [str(FRONTEND_DIST_DIR)]
+STATIC_URL = '/static/'
+STATIC_ROOT = PROJECT_ROOT / 'staticfiles'
+STATICFILES_DIRS = [PROJECT_ROOT / 'static']
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
-MEDIA_URL = '/api/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = PROJECT_ROOT / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

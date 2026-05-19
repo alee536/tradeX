@@ -70,6 +70,8 @@ out-tsc/
 Thumbs.db
 .cache/
 .local/
+.agents/
+.canvas/
 
 # ============ TESTING ============
 .pytest_cache/

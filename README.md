@@ -133,7 +133,7 @@ This regenerates React hooks in `lib/api-client-react/src/generated/` and Zod sc
 
 ### Django Admin
 - **URL:** http://localhost:8000/admin
-- **Default credentials:** username `admin`, password `admin123`
+- **Default credentials:** username `admin`, password `*******`
 
 ## Architecture
 
