@@ -76,14 +76,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'tradex.wsgi.application'
 
+def _writable_path(requested: str, fallback: Path) -> Path:
+    """Use requested path if its parent can be created; otherwise fall back (e.g. Render Free /var/data)."""
+    if not requested:
+        return fallback
+    path = Path(requested)
+    parent = path.parent
+    try:
+        parent.mkdir(parents=True, exist_ok=True)
+        return path
+    except OSError:
+        return fallback
+
+
 def _resolve_sqlite_path() -> Path:
-    """SQLite path: use DATABASE_PATH on Render persistent disk, else local db.sqlite3."""
+    """SQLite path: DATABASE_PATH on persistent disk, else backend/tradex/db.sqlite3."""
+    default = BASE_DIR / os.environ.get('DB_NAME', 'db.sqlite3')
     database_path = os.environ.get('DATABASE_PATH', '').strip()
-    if database_path:
-        return Path(database_path)
-    db_name = os.environ.get('DB_NAME', 'db.sqlite3')
-    path = Path(db_name)
-    return path if path.is_absolute() else BASE_DIR / path
+    return _writable_path(database_path, default)
 
 
 DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
@@ -118,7 +128,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 _media_root = os.environ.get('MEDIA_ROOT', '').strip()
-MEDIA_ROOT = Path(_media_root) if _media_root else PROJECT_ROOT / 'media'
+MEDIA_ROOT = _writable_path(_media_root, PROJECT_ROOT / 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
