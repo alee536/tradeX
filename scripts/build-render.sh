@@ -12,7 +12,7 @@ python -m pip install -r backend/requirements.txt
 echo "==> Building frontend..."
 cd frontend
 if command -v npm >/dev/null 2>&1; then
-  npm ci --legacy-peer-deps 2>/dev/null || npm install --legacy-peer-deps
+  npm ci --legacy-peer-deps
   NODE_ENV=production npm run build
 else
   echo "ERROR: npm not found. Set NODE_VERSION in Render environment."
@@ -20,8 +20,8 @@ else
 fi
 
 echo "==> Syncing frontend build into Django..."
+rm -rf "$ROOT/backend/static/frontend"
 mkdir -p "$ROOT/backend/static/frontend"
-rm -rf "$ROOT/backend/static/frontend/"*
 cp -r dist/* "$ROOT/backend/static/frontend/"
 cp dist/index.html "$ROOT/backend/templates/index.html"
 

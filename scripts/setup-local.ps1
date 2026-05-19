@@ -22,16 +22,10 @@ $ManagePy = Join-Path $Backend "manage.py"
 & $VenvPython $ManagePy migrate --noinput
 Write-Host "Migrations applied." -ForegroundColor Green
 
-# Frontend api-client (restore from git if missing)
+# Frontend api-client (committed in repo at frontend/lib/api-client-react)
 $ApiClient = Join-Path $Root "frontend\lib\api-client-react\package.json"
 if (-not (Test-Path $ApiClient)) {
-    Write-Host "Restoring api-client-react from git..." -ForegroundColor Yellow
-    Push-Location $Root
-    git checkout 9a3a817 -- lib/api-client-react
-    New-Item -ItemType Directory -Force -Path "frontend\lib" | Out-Null
-    Move-Item -Force "lib\api-client-react" "frontend\lib\api-client-react"
-    Remove-Item -Recurse -Force "lib" -ErrorAction SilentlyContinue
-    Pop-Location
+    Write-Error "Missing frontend/lib/api-client-react. Run 'git pull' or clone the full repository."
 }
 
 # Frontend

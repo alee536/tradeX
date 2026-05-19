@@ -7,13 +7,14 @@ python -m pip install -r (Join-Path $Root "backend\requirements.txt")
 
 Write-Host "==> Frontend build..." -ForegroundColor Cyan
 Push-Location (Join-Path $Root "frontend")
-npm install --legacy-peer-deps
+npm ci --legacy-peer-deps
 $env:NODE_ENV = "production"
 npm run build
 Pop-Location
 
 Write-Host "==> Sync to Django static..." -ForegroundColor Cyan
 $staticDir = Join-Path $Root "backend\static\frontend"
+if (Test-Path $staticDir) { Remove-Item -Recurse -Force $staticDir }
 New-Item -ItemType Directory -Force -Path $staticDir | Out-Null
 Copy-Item -Path (Join-Path $Root "frontend\dist\*") -Destination $staticDir -Recurse -Force
 Copy-Item -Path (Join-Path $Root "frontend\dist\index.html") -Destination (Join-Path $Root "backend\templates\index.html") -Force

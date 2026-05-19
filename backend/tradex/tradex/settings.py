@@ -86,10 +86,16 @@ def _resolve_sqlite_path() -> Path:
     return path if path.is_absolute() else BASE_DIR / path
 
 
+DB_ENGINE = os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3')
+
 DATABASES = {
     'default': {
-        'ENGINE': os.environ.get('DB_ENGINE', 'django.db.backends.sqlite3'),
-        'NAME': _resolve_sqlite_path(),
+        'ENGINE': DB_ENGINE,
+        'NAME': (
+            _resolve_sqlite_path()
+            if DB_ENGINE == 'django.db.backends.sqlite3'
+            else os.environ.get('DB_NAME', '')
+        ),
     }
 }
 
