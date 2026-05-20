@@ -337,7 +337,7 @@ export default function Home() {
           {user ? (
             <Link href="/purchase">
               <a className="inline-block px-10 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-lg">
-                BUY TDX NOW
+                BUY 24TX NOW
               </a>
             </Link>
           ) : (
