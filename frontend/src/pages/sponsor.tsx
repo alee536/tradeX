@@ -51,7 +51,7 @@ export default function Sponsor() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">Network & Sponsors</h1>
+        <h1 className="text-3xl font-bold tracking-tight">Sponsors</h1>
         <p className="text-muted-foreground mt-2">Build your trading network and earn rewards.</p>
       </div>
 
@@ -135,7 +135,7 @@ export default function Sponsor() {
 
       <Card className="glass-panel border-white/10 mt-8">
         <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <CardTitle>Network Members</CardTitle>
+          <CardTitle>Sponser Members</CardTitle>
           <form onSubmit={handleSearch} className="flex items-center gap-2 w-full sm:w-auto">
              <div className="relative flex-1 sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />

@@ -222,7 +222,7 @@ export default function Home() {
                 <p className="text-lg font-black text-green-400">{plan.return}</p>
               </div>
               <p className="text-xs text-slate-500">
-                After <span className="text-cyan-400 font-bold">1 week</span> · {parseInt(plan.return.slice(1)) - parseInt(plan.amount.slice(1))} profit
+                After <span className="text-cyan-400 font-bold">120 hours</span> · {parseInt(plan.return.slice(1)) - parseInt(plan.amount.slice(1))} profit
               </p>
             </div>
           ))}

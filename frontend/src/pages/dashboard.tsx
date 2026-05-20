@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
 // Simple animated counter component
-function AnimatedCounter({ value, isCurrency = false, symbol = "24X" }: { value: number, isCurrency?: boolean, symbol?: string }) {
+function AnimatedCounter({ value, isCurrency = false, symbol = "24TX" }: { value: number, isCurrency?: boolean, symbol?: string }) {
   const [displayValue, setDisplayValue] = useState(0);
 
   useEffect(() => {
@@ -158,7 +158,7 @@ export default function Dashboard() {
         <Card className="glass-panel border-l-4 border-l-secondary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Sponsor Earnings
+              SPONSER REWARDS
             </CardTitle>
             <Users className="h-4 w-4 text-secondary" />
           </CardHeader>
