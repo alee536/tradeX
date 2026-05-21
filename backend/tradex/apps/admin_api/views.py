@@ -7,7 +7,8 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.purchases.models import Purchase, PurchaseRejectionDocument
-from apps.withdrawals.models import Withdrawal
+from apps.withdrawals.claims import ClaimError, approve_claim, reject_claim
+from apps.withdrawals.models import PurchaseClaim, Withdrawal
 from apps.notifications.utils import create_notification
 from apps.settings_app.models import SystemSettings
 from apps.settings_app.serializers import SystemSettingsSerializer
@@ -404,6 +405,107 @@ def admin_reject_withdrawal(request, pk):
 
     create_notification(withdrawal.user, 'withdrawal_rejected', f'Your withdrawal of {withdrawal.amount} tokens has been rejected. Reason: {reason}')
     return Response({'message': 'Withdrawal rejected'})
+
+
+# ============== Purchase Claims (staged withdrawal) ==============
+
+
+def _serialize_admin_claim(claim):
+    user = claim.user
+    purchase = claim.purchase
+    return {
+        'id': claim.id,
+        'stage': claim.stage,
+        'status': claim.status,
+        'amount_coins': float(claim.amount_coins or 0),
+        'amount_usdt_snapshot': float(claim.amount_usdt_snapshot or 0),
+        'coin_rate_snapshot': float(claim.coin_rate_snapshot or 0),
+        'wallet_address': claim.wallet_address,
+        'manual_tx_hash': claim.manual_tx_hash,
+        'rejection_reason': claim.rejection_reason,
+        'created_at': claim.created_at.isoformat() if claim.created_at else None,
+        'approved_at': claim.approved_at.isoformat() if claim.approved_at else None,
+        'rejected_at': claim.rejected_at.isoformat() if claim.rejected_at else None,
+        'purchase': {
+            'id': getattr(purchase, 'id', None),
+            'transaction_id': getattr(purchase, 'transaction_id', None),
+            'amount_usdt': float(getattr(purchase, 'amount', 0) or 0),
+        },
+        'user': {
+            'id': getattr(user, 'id', None),
+            'username': getattr(user, 'username', None),
+            'email': getattr(user, 'email', None),
+            'full_name': getattr(user, 'full_name', None),
+        },
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_list_claims(request):
+    """List all staged purchase claims for admin review."""
+    qs = (
+        PurchaseClaim.objects.all()
+        .select_related('user', 'purchase')
+        .order_by('-created_at')
+    )
+
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    stage_filter = request.query_params.get('stage')
+    if stage_filter:
+        try:
+            qs = qs.filter(stage=int(stage_filter))
+        except ValueError:
+            return Response({'error': 'stage must be an integer.'}, status=400)
+
+    paginator = AdminPaginator()
+    page = paginator.paginate_queryset(qs, request)
+    return paginator.get_paginated_response(
+        [_serialize_admin_claim(c) for c in page]
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_approve_claim(request, pk):
+    try:
+        claim = PurchaseClaim.objects.select_related('user', 'purchase').get(pk=pk)
+    except PurchaseClaim.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
+
+    manual_tx_hash = request.data.get('manual_tx_hash', '')
+    try:
+        approve_claim(claim, manual_tx_hash)
+    except ClaimError as exc:
+        return Response({'error': str(exc)}, status=400)
+
+    return Response({
+        'message': 'Claim approved.',
+        'claim': _serialize_admin_claim(claim),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_reject_claim(request, pk):
+    try:
+        claim = PurchaseClaim.objects.select_related('user', 'purchase').get(pk=pk)
+    except PurchaseClaim.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
+
+    reason = request.data.get('reason', '')
+    try:
+        reject_claim(claim, reason)
+    except ClaimError as exc:
+        return Response({'error': str(exc)}, status=400)
+
+    return Response({
+        'message': 'Claim rejected.',
+        'claim': _serialize_admin_claim(claim),
+    })
 
 
 # ---- Settings ----

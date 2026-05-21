@@ -1,0 +1,184 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Staged Claims - 24TradeX Admin{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="bi bi-stack"></i> Staged Withdrawal Claims</h1>
+    <p style="color: #94a3b8; margin-top: 4px;">Per-purchase 3-stage claim requests (50% / 25% / 25%).</p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <form method="get" class="row g-3">
+            <div class="col-md-5">
+                <input type="text" name="search" class="form-control"
+                       placeholder="Search by username, email, transaction id, wallet"
+                       value="{{ search }}">
+            </div>
+            <div class="col-md-3">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    {% for value, label in statuses %}
+                        <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <select name="stage" class="form-select">
+                    <option value="">All Stages</option>
+                    {% for value, label in stages %}
+                        <option value="{{ value }}" {% if stage_filter == value|stringformat:"s" %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Filter
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>User</th>
+                <th>Purchase</th>
+                <th>Stage</th>
+                <th>Coins</th>
+                <th>USDT Snapshot</th>
+                <th>Wallet</th>
+                <th>Status</th>
+                <th>Requested</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for claim in claims %}
+                <tr>
+                    <td>
+                        <a href="{% url 'admin_dashboard:user_detail' claim.user.id %}"
+                           style="color: #3b82f6; text-decoration: none;">
+                            <strong>{{ claim.user.username }}</strong>
+                        </a><br>
+                        <small style="color: #94a3b8;">{{ claim.user.email }}</small>
+                    </td>
+                    <td>
+                        <code style="color: #cbd5e1;">{{ claim.purchase.transaction_id }}</code><br>
+                        <small style="color: #94a3b8;">${{ claim.purchase.amount }}</small>
+                    </td>
+                    <td><span class="badge bg-info">Stage {{ claim.stage }}</span></td>
+                    <td>{{ claim.amount_coins|floatformat:8 }}</td>
+                    <td>${{ claim.amount_usdt_snapshot|floatformat:2 }}</td>
+                    <td>
+                        <code style="color: #94a3b8; font-size: 12px;">{{ claim.wallet_address }}</code>
+                    </td>
+                    <td>
+                        {% if claim.status == 'pending' %}
+                            <span class="badge-pending">Pending</span>
+                        {% elif claim.status == 'approved' %}
+                            <span class="badge-approved">Approved</span>
+                        {% elif claim.status == 'rejected' %}
+                            <span class="badge-rejected">Rejected</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ claim.created_at|date:"M d, Y H:i" }}</td>
+                    <td>
+                        {% if claim.status == 'pending' %}
+                            <div class="d-flex flex-column gap-2">
+                                <button type="button" class="btn btn-success btn-sm"
+                                        data-approve-url="{% url 'admin_dashboard:approve_claim' claim.id %}"
+                                        onclick="openApproveModal(this)">Approve</button>
+                                <button type="button" class="btn btn-outline-danger btn-sm"
+                                        data-reject-url="{% url 'admin_dashboard:reject_claim' claim.id %}"
+                                        onclick="openRejectModal(this)">Reject</button>
+                            </div>
+                        {% else %}
+                            <span style="color: #94a3b8; font-size: 12px;">
+                                {% if claim.manual_tx_hash %}TX: {{ claim.manual_tx_hash|slice:":12" }}…{% endif %}
+                                {% if claim.rejection_reason %}{{ claim.rejection_reason }}{% endif %}
+                            </span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center py-5">
+                        <p style="color: #94a3b8;">No claims found</p>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Approve Modal -->
+<div id="approveModal" class="modal" tabindex="-1" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Approve Claim</h5>
+                <button type="button" class="btn-close" onclick="closeModal('approveModal')"></button>
+            </div>
+            <form id="approveForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Manual Transaction Hash</label>
+                        <input type="text" name="manual_tx_hash" class="form-control" required>
+                        <small style="color: #94a3b8;">Approving this claim starts the next stage timer.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('approveModal')">Cancel</button>
+                    <button type="submit" class="btn btn-success">Approve</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="modal" tabindex="-1" style="display:none;">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Claim</h5>
+                <button type="button" class="btn-close" onclick="closeModal('rejectModal')"></button>
+            </div>
+            <form id="rejectForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Rejection Reason (optional)</label>
+                        <input type="text" name="reason" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('rejectModal')">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function openApproveModal(btn) {
+    var url = btn.getAttribute('data-approve-url');
+    document.getElementById('approveForm').action = url;
+    document.getElementById('approveModal').style.display = 'block';
+}
+function openRejectModal(btn) {
+    var url = btn.getAttribute('data-reject-url');
+    document.getElementById('rejectForm').action = url;
+    document.getElementById('rejectModal').style.display = 'block';
+}
+function closeModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+</script>
+{% endblock %}

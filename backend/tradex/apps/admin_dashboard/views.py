@@ -13,7 +13,8 @@ import json
 from apps.accounts.models import User
 from apps.purchases.models import Purchase
 from apps.settings_app.models import SystemSettings
-from apps.withdrawals.models import Withdrawal
+from apps.withdrawals.claims import ClaimError, approve_claim, reject_claim
+from apps.withdrawals.models import PurchaseClaim, Withdrawal
 from apps.notifications.utils import create_notification
 from .permissions import admin_required
 
@@ -618,3 +619,83 @@ def reject_withdrawal(request, withdrawal_id):
     )
     messages.success(request, 'Withdrawal rejected successfully.')
     return redirect('admin_dashboard:withdrawals')
+
+
+# ==================== STAGED CLAIM VIEWS ====================
+
+
+@admin_required
+def claims_list(request):
+    """List all staged purchase claims for admin review."""
+    qs = (
+        PurchaseClaim.objects
+        .select_related('user', 'purchase')
+        .order_by('-created_at')
+    )
+
+    status_filter = request.GET.get('status', '')
+    stage_filter = request.GET.get('stage', '')
+    search = (request.GET.get('search') or '').strip()
+
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if stage_filter:
+        try:
+            qs = qs.filter(stage=int(stage_filter))
+        except ValueError:
+            pass
+    if search:
+        qs = qs.filter(
+            Q(user__username__icontains=search)
+            | Q(user__email__icontains=search)
+            | Q(purchase__transaction_id__icontains=search)
+            | Q(wallet_address__icontains=search)
+        )
+
+    context = {
+        'claims': qs[:200],
+        'status_filter': status_filter,
+        'stage_filter': stage_filter,
+        'search': search,
+        'statuses': PurchaseClaim.STATUS_CHOICES,
+        'stages': PurchaseClaim.STAGE_CHOICES,
+    }
+    return render(request, 'admin/claims.html', context)
+
+
+@admin_required
+@require_http_methods(["POST"])
+def approve_claim_view(request, claim_id):
+    """Approve a staged claim from the admin dashboard."""
+    claim = get_object_or_404(PurchaseClaim, id=claim_id)
+    manual_tx_hash = (request.POST.get('manual_tx_hash') or '').strip()
+    try:
+        approve_claim(claim, manual_tx_hash)
+    except ClaimError as exc:
+        messages.error(request, str(exc))
+        return redirect('admin_dashboard:claims')
+
+    messages.success(
+        request,
+        f'Stage {claim.stage} claim approved for {claim.user.username}.'
+    )
+    return redirect('admin_dashboard:claims')
+
+
+@admin_required
+@require_http_methods(["POST"])
+def reject_claim_view(request, claim_id):
+    """Reject a staged claim from the admin dashboard."""
+    claim = get_object_or_404(PurchaseClaim, id=claim_id)
+    reason = (request.POST.get('reason') or '').strip()
+    try:
+        reject_claim(claim, reason)
+    except ClaimError as exc:
+        messages.error(request, str(exc))
+        return redirect('admin_dashboard:claims')
+
+    messages.success(
+        request,
+        f'Stage {claim.stage} claim rejected for {claim.user.username}.'
+    )
+    return redirect('admin_dashboard:claims')

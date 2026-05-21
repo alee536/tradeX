@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import Withdrawal
+from .models import PurchaseClaim, Withdrawal
 
 
 @admin.register(Withdrawal)
@@ -50,3 +50,21 @@ class WithdrawalAdmin(admin.ModelAdmin):
         count = queryset.update(status='pending')
         self.message_user(request, f'{count} withdrawals marked as pending.')
     mark_as_pending.short_description = "Mark as pending"
+
+
+@admin.register(PurchaseClaim)
+class PurchaseClaimAdmin(admin.ModelAdmin):
+    list_display = (
+        'id', 'user', 'purchase', 'stage', 'amount_coins',
+        'status', 'created_at', 'approved_at',
+    )
+    list_filter = ('status', 'stage', 'created_at')
+    search_fields = (
+        'user__username', 'user__email',
+        'purchase__transaction_id', 'wallet_address',
+    )
+    readonly_fields = (
+        'user', 'purchase', 'stage', 'amount_coins',
+        'amount_usdt_snapshot', 'coin_rate_snapshot',
+        'wallet_address', 'created_at', 'approved_at', 'rejected_at',
+    )

@@ -35,7 +35,12 @@ urlpatterns = [
     path('withdrawals/', views.withdrawals_list, name='withdrawals'),
     path('withdrawals/<int:withdrawal_id>/approve/', views.approve_withdrawal, name='approve_withdrawal'),
     path('withdrawals/<int:withdrawal_id>/reject/', views.reject_withdrawal, name='reject_withdrawal'),
-    
+
+    # Staged claims (per-purchase 50/25/25)
+    path('claims/', views.claims_list, name='claims'),
+    path('claims/<int:claim_id>/approve/', views.approve_claim_view, name='approve_claim'),
+    path('claims/<int:claim_id>/reject/', views.reject_claim_view, name='reject_claim'),
+
     # Coin Settings
     path('settings/coin/', views.coin_settings, name='coin_settings'),
 ]

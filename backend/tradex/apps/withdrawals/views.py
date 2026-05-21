@@ -1,14 +1,25 @@
+from datetime import timedelta
+from decimal import Decimal
+
+from django.utils import timezone
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.pagination import PageNumberPagination
-from decimal import Decimal
-from datetime import timedelta
-from django.utils import timezone
-from .models import Withdrawal
-from .serializers import WithdrawalSerializer, WithdrawalInputSerializer
+from rest_framework.views import APIView
+
 from apps.notifications.utils import create_notification
+
+from .claims import (
+    ClaimError,
+    create_claim,
+    get_purchase_schedule,
+    get_user_claim_schedule,
+    total_claimed_coins,
+)
+from .models import PurchaseClaim, Withdrawal
+from .serializers import WithdrawalInputSerializer, WithdrawalSerializer
 
 
 ACTIVE_WITHDRAWAL_STATUSES = ['pending', 'approved', 'completed']
@@ -96,7 +107,12 @@ def get_available_balance(user):
     total_withdrawn = sum(
         w.amount for w in Withdrawal.objects.filter(user=user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
     )
-    available = max(0.0, float(total_unlocked) + profit_bonus - float(total_withdrawn))
+    # Staged claim system also reserves coins to avoid double spending.
+    total_via_claims = total_claimed_coins(user)
+    available = max(
+        0.0,
+        float(total_unlocked) + profit_bonus - float(total_withdrawn) - float(total_via_claims),
+    )
     return available, float(total_unlocked), float(total_assigned)
 
 
@@ -217,3 +233,69 @@ def unlocked_amount(request):
         'coin_rate': float(settings_obj.coin_rate),
         'breakdown': breakdown,
     })
+
+
+# ============== Purchase Claim Endpoints (APIView) ==============
+
+
+def _get_purchase_or_404(user, purchase_id):
+    from apps.purchases.models import Purchase
+
+    try:
+        return Purchase.objects.get(pk=purchase_id, user=user)
+    except Purchase.DoesNotExist:
+        return None
+
+
+class ClaimScheduleView(APIView):
+    """============== List user's per-purchase claim schedule =============="""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        purchase_id = request.query_params.get('purchase_id')
+        if purchase_id:
+            purchase = _get_purchase_or_404(request.user, purchase_id)
+            if purchase is None:
+                return Response({'error': 'Purchase not found.'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({'purchases': [get_purchase_schedule(purchase)]})
+
+        return Response({'purchases': get_user_claim_schedule(request.user)})
+
+
+class ClaimCreateView(APIView):
+    """============== Submit a claim request for one stage =============="""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        purchase_id = request.data.get('purchase_id')
+        stage = request.data.get('stage')
+        wallet_address = request.data.get('wallet_address')
+
+        if purchase_id is None or stage is None:
+            return Response(
+                {'error': 'purchase_id and stage are required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            stage = int(stage)
+        except (TypeError, ValueError):
+            return Response({'error': 'stage must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        purchase = _get_purchase_or_404(request.user, purchase_id)
+        if purchase is None:
+            return Response({'error': 'Purchase not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        try:
+            create_claim(request.user, purchase, stage, wallet_address)
+        except ClaimError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(
+            {
+                'message': f'Stage {stage} claim submitted for admin review.',
+                'schedule': get_purchase_schedule(purchase),
+            },
+            status=status.HTTP_201_CREATED,
+        )

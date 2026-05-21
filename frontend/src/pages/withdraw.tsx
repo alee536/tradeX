@@ -5,7 +5,9 @@ import * as z from "zod";
 import { 
   useGetUnlockedAmount, 
   useCreateWithdrawal,
-  useListWithdrawals
+  useListWithdrawals,
+  useGetClaimSchedule,
+  getGetClaimScheduleQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetUnlockedAmountQueryKey, getListWithdrawalsQueryKey } from "@workspace/api-client-react";
@@ -20,6 +22,7 @@ import { Loader2, ArrowDownToLine, CheckCircle2, Clock, XCircle, Lock, Unlock } 
 import { formatCrypto, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ClaimScheduleCard } from "@/components/claims/ClaimScheduleCard";
 
 const withdrawSchema = z.object({
   amount: z.coerce.number().positive("Amount must be positive"),
@@ -33,6 +36,9 @@ export default function Withdraw() {
   const queryClient = useQueryClient();
   const { data: unlockData, isLoading: loadingUnlock } = useGetUnlockedAmount();
   const { data: withdrawals, isLoading: loadingWithdrawals } = useListWithdrawals({ page: 1 });
+  const { data: claimData, isLoading: loadingClaims } = useGetClaimSchedule(undefined, {
+    query: { refetchInterval: 15000 },
+  });
   const createWithdrawal = useCreateWithdrawal();
   const { data: liveSettings } = useQuery({
     queryKey: ["public-coin-settings"],
@@ -97,12 +103,38 @@ export default function Withdraw() {
     }
   };
 
+  const claimSchedules = claimData?.purchases ?? [];
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Withdraw Tokens</h1>
-        <p className="text-muted-foreground mt-2">Request withdrawal for your unlocked tokens.</p>
+        <p className="text-muted-foreground mt-2">Claim your purchase in 3 staged payouts (50% / 25% / 25%).</p>
       </div>
+
+      <section className="space-y-4">
+        <h2 className="text-xl font-semibold">Per-Purchase Claim Schedule</h2>
+        {loadingClaims ? (
+          <Skeleton className="h-32 w-full" />
+        ) : claimSchedules.length === 0 ? (
+          <div className="rounded-lg border border-white/10 border-dashed p-6 text-sm text-muted-foreground text-center">
+            No approved purchases yet. Once admin approves a purchase, the 72-hour timer for Stage 1 starts.
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {claimSchedules.map((schedule) => (
+              <ClaimScheduleCard
+                key={schedule.purchase_id}
+                schedule={schedule}
+                onSuccess={() => {
+                  queryClient.invalidateQueries({ queryKey: getGetClaimScheduleQueryKey() });
+                  queryClient.invalidateQueries({ queryKey: getGetUnlockedAmountQueryKey() });
+                }}
+              />
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="grid gap-6 md:grid-cols-2">
         <Card className="glass-panel">

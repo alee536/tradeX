@@ -476,6 +476,12 @@
                 </a>
             </li>
             <li>
+                <a href="{% url 'admin_dashboard:claims' %}" class="{% if request.resolver_match.url_name == 'claims' %}active{% endif %}">
+                    <i class="bi bi-stack"></i>
+                    <span>Claims</span>
+                </a>
+            </li>
+            <li>
                 <a href="{% url 'admin_dashboard:users' %}" class="{% if request.resolver_match.url_name == 'users' or request.resolver_match.url_name == 'user_detail' %}active{% endif %}">
                     <i class="bi bi-people-fill"></i>
                     <span>Users</span>
