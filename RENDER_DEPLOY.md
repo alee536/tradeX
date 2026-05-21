@@ -7,13 +7,17 @@
 
 ## 1. Persistent disk (required for SQLite)
 
-Without a disk, SQLite and uploaded screenshots are **lost on every redeploy**.
+Without a disk, SQLite and uploaded screenshots are **lost on every redeploy** and you will see **all migrations run again** plus **superuser/data gone**.
+
+**Blueprint (`render.yaml`)** includes a 1 GB disk at `/var/data`. If you deployed manually:
 
 1. Render Dashboard → your Web Service → **Disks**
 2. Add disk: **1 GB**, mount path: `/var/data`
 3. Set environment variables (see `backend/.env.render.example`):
    - `DATABASE_PATH=/var/data/db.sqlite3`
    - `MEDIA_ROOT=/var/data/media`
+
+**Important:** Migrations run at **start** (not build), because the disk is only mounted when the service runs. Build logs may show no migrate; runtime logs show `Applying migrations...` only for **new** migrations after the first deploy.
 
 ## 2. Environment variables
 
@@ -49,21 +53,24 @@ Render can auto-generate `SECRET_KEY` if you use `render.yaml` with `generateVal
 
 Add env vars from `backend/.env.render.example`.
 
-## 5. After first deploy
+## 5. Admin user (after first deploy)
+
+**Option A — automatic (recommended):** In Render → Environment, add (do not commit passwords to git):
+
+| Variable | Example |
+|----------|---------|
+| `RENDER_ADMIN_EMAIL` | `admin@gmail.com` |
+| `RENDER_ADMIN_PASSWORD` | strong password |
+| `RENDER_ADMIN_FULL_NAME` | `Admin` (optional) |
+
+Redeploy once. `start-render.sh` creates/updates this user on every start without wiping existing data.
+
+**Option B — manual shell:**
 
 ```bash
 # Render Shell (Dashboard → Shell)
 cd backend
 python manage.py createsuperuser
-```
-
-Or create admin via shell:
-
-```python
-from apps.accounts.models import User
-u, _ = User.objects.get_or_create(email='admin@gmail.com', defaults={'username':'admin','full_name':'Admin','is_staff':True,'is_superuser':True})
-u.set_password('your-secure-password')
-u.save()
 ```
 
 ## 6. Verify
@@ -98,6 +105,8 @@ Windows: use Git Bash or WSL for the shell scripts.
 |-------|-----|
 | 404 on `/api/api/...` | Do not call `setBaseUrl('/api')` — paths already include `/api` |
 | Static files 404 | Re-run build; check `collectstatic` in build logs |
-| Data lost after deploy | Attach persistent disk; set `DATABASE_PATH` |
+| Data lost after deploy | Attach persistent disk at `/var/data`; set `DATABASE_PATH` and `MEDIA_ROOT` |
+| All migrations run every deploy | Fixed: migrate moved from build to start; attach disk so DB persists |
+| Superuser gone after deploy | Same as data loss — use persistent disk + `RENDER_ADMIN_*` env vars |
 | Build fails on frontend | Ensure `frontend/lib/api-client-react` is committed to git |
 | `check --deploy` warnings | Set `DEBUG=False` and strong `SECRET_KEY` on Render |

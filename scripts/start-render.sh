@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Render.com start: ensure data dirs exist, run Gunicorn.
+# Render.com start: persistent disk is mounted here — migrate DB, then Gunicorn.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -8,7 +8,7 @@ _ensure_dir() {
   local dir="$1"
   [ -z "$dir" ] && return 0
   mkdir -p "$dir" 2>/dev/null || {
-    echo "WARNING: Cannot create '${dir}'. Unset DATABASE_PATH/MEDIA_ROOT on Free tier."
+    echo "WARNING: Cannot create '${dir}'. Attach a Render disk at /var/data or unset DATABASE_PATH."
     return 0
   }
 }
@@ -20,9 +20,15 @@ if [ -n "${MEDIA_ROOT:-}" ]; then
   _ensure_dir "$MEDIA_ROOT"
 fi
 
-# manage.py adds backend/tradex to sys.path; gunicorn needs the same
 export PYTHONPATH="${ROOT}/backend/tradex${PYTHONPATH:+:${PYTHONPATH}}"
 cd "$ROOT/backend"
+
+echo "==> Applying migrations on persistent database..."
+python manage.py migrate --noinput
+
+bash "$ROOT/scripts/ensure-render-admin.sh"
+
+echo "==> Starting Gunicorn..."
 exec gunicorn tradex.wsgi:application \
   --bind "0.0.0.0:${PORT:-8000}" \
   --workers "${GUNICORN_WORKERS:-2}" \

@@ -8,6 +8,11 @@ services:
     buildCommand: bash scripts/build-render.sh
     startCommand: bash scripts/start-render.sh
     healthCheckPath: /api/healthz
+    # Required: keeps SQLite + media across redeploys (without this, data resets every deploy)
+    disk:
+      name: tradex-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.7"
@@ -22,7 +27,9 @@ services:
       - key: ALLOWED_HOSTS
         value: "s24tx.com,www.s24tx.com,tradex.onrender.com,localhost,127.0.0.1"
       - key: SITE_URL
-        value: "https://s24tx.com"
+        value: "https://www.s24tx.com"
+      - key: FRONTEND_URL
+        value: "https://www.s24tx.com"
       - key: CSRF_TRUSTED_ORIGINS
         value: "https://s24tx.com,https://www.s24tx.com,https://tradex.onrender.com"
       - key: CORS_ALLOWED_ORIGINS

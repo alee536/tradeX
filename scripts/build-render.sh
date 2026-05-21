@@ -39,16 +39,9 @@ _ensure_dir() {
   return 0
 }
 
-echo "==> Django collectstatic & migrations..."
+echo "==> Django collectstatic (no DB migrate at build — disk not mounted during build)..."
 cd "$ROOT/backend"
-if [ -n "${DATABASE_PATH:-}" ]; then
-  _ensure_dir "$(dirname "$DATABASE_PATH")" "database directory"
-fi
-if [ -n "${MEDIA_ROOT:-}" ]; then
-  _ensure_dir "$MEDIA_ROOT" "media directory"
-fi
 
 python manage.py collectstatic --noinput
-python manage.py migrate --noinput
 
-echo "==> Build complete."
+echo "==> Build complete. Migrations run at start on /var/data (see start-render.sh)."
