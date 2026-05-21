@@ -16,14 +16,21 @@ def get_settings(request):
 @permission_classes([AllowAny])
 def public_settings(request):
     settings = SystemSettings.get_settings()
-    return Response({
+    payload = {
         'coin_rate': settings.coin_rate,
         'currency_symbol': settings.currency_symbol,
         'last_updated_at': settings.last_updated_at,
         'min_purchase': settings.min_purchase,
         'max_purchase': settings.max_purchase,
         'usdt_wallet_address': settings.usdt_wallet_address,
-    })
+    }
+    if settings.profit_enabled:
+        payload['profit_enabled'] = True
+        payload['profit_percentage'] = settings.profit_percentage
+        payload['profit_cycle_hours'] = settings.profit_cycle_hours
+    else:
+        payload['profit_enabled'] = False
+    return Response(payload)
 
 
 @api_view(['GET'])

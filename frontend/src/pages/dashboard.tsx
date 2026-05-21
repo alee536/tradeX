@@ -2,7 +2,7 @@ import { useGetDashboardSummary, useListPurchases } from "@workspace/api-client-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCrypto, formatCurrency } from "@/lib/utils";
-import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle } from "lucide-react";
+import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Gift } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
@@ -32,6 +32,110 @@ function AnimatedCounter({ value, isCurrency = false, symbol = "24TX" }: { value
     return <span>{formatCurrency(displayValue)}</span>;
   }
   return <span>{formatCrypto(displayValue, symbol)}</span>;
+}
+
+function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(s / 86400);
+  const hours = Math.floor((s % 86400) / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
+  if (days > 0) return `${days}d ${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h ${minutes}m ${secs}s`;
+  return `${minutes}m ${secs}s`;
+}
+
+function ProfitRewardCard({
+  profit,
+  isLoading,
+}: {
+  profit: {
+    enabled: boolean;
+    profit_percentage?: number;
+    profit_cycle_hours?: number;
+    base_usdt?: number;
+    estimated_profit_usdt?: number;
+    total_after_profit_usdt?: number;
+    next_claim_at?: string | null;
+    seconds_until_claim?: number | null;
+  } | undefined;
+  isLoading: boolean;
+}) {
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(
+    profit?.seconds_until_claim ?? null
+  );
+
+  useEffect(() => {
+    if (!profit?.enabled) return;
+    setSecondsLeft(profit.seconds_until_claim ?? null);
+    const id = setInterval(() => {
+      setSecondsLeft((prev) => (prev === null ? null : Math.max(0, prev - 1)));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [profit?.enabled, profit?.seconds_until_claim]);
+
+  if (isLoading) {
+    return (
+      <Card className="glass-panel border-l-4 border-l-amber-500 md:col-span-2">
+        <CardContent className="p-6">
+          <Skeleton className="h-24 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!profit?.enabled) return null;
+
+  return (
+    <Card className="glass-panel border-l-4 border-l-amber-500 md:col-span-2">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-amber-400" />
+          Profit / Reward
+        </CardTitle>
+        <span className="text-xs font-semibold text-amber-300 bg-amber-500/10 px-2 py-1 rounded">
+          {profit.profit_percentage ?? 0}% active
+        </span>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Purchase base (USDT)</p>
+            <p className="text-xl font-bold text-white">{formatCurrency(profit.base_usdt ?? 0)}</p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Estimated profit</p>
+            <p className="text-xl font-bold text-amber-300">
+              +{formatCurrency(profit.estimated_profit_usdt ?? 0)}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs text-muted-foreground mb-1">Total after profit</p>
+            <p className="text-xl font-bold text-green-400">
+              {formatCurrency(profit.total_after_profit_usdt ?? 0)}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-t border-white/10 pt-4">
+          <Gift className="h-4 w-4 text-amber-400 shrink-0" />
+          <span>
+            Next reward:{" "}
+            <span className="text-white font-medium">
+              {secondsLeft !== null ? formatCountdown(secondsLeft) : "—"}
+            </span>
+            {profit.profit_cycle_hours ? (
+              <span className="ml-2">(every {profit.profit_cycle_hours}h)</span>
+            ) : null}
+          </span>
+          {profit.next_claim_at && (
+            <span className="text-xs w-full sm:w-auto">
+              at {new Date(profit.next_claim_at).toLocaleString()}
+            </span>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 export default function Dashboard() {
@@ -172,6 +276,10 @@ export default function Dashboard() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <ProfitRewardCard profit={summary?.profit} isLoading={isLoading} />
       </div>
       
       {/* More dashboard content could go here, like recent transactions */}

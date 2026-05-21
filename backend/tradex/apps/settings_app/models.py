@@ -20,6 +20,18 @@ class SystemSettings(models.Model):
     max_purchase = models.DecimalField(max_digits=20, decimal_places=8, default=100000)
     usdt_wallet_address = models.CharField(max_length=255, default='0x0000000000000000000000000000000000000000')
     sponsor_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=5)
+
+    # Profit / reward system (admin-controlled)
+    profit_enabled = models.BooleanField(default=False, help_text='Enable profit display and reward cycle for users')
+    profit_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        help_text='Profit percentage applied to assigned purchase USDT, e.g. 10 = 10%',
+    )
+    profit_cycle_hours = models.IntegerField(
+        default=72,
+        help_text='Hours after coin assignment before each profit reward cycle',
+    )
+
     # Global coin supply tracking
     total_coin_supply = models.DecimalField(max_digits=30, decimal_places=8, default=21000000)
     sold_coins = models.DecimalField(max_digits=30, decimal_places=8, default=0)

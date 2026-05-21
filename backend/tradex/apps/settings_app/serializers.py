@@ -12,6 +12,17 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
             'stage3_hours', 'stage3_percent',
             'min_purchase', 'max_purchase',
             'usdt_wallet_address', 'sponsor_percentage',
+            'profit_enabled', 'profit_percentage', 'profit_cycle_hours',
             'total_coin_supply', 'sold_coins',
             'remaining_coins',
         ]
+
+    def validate_profit_percentage(self, value):
+        if value is not None and (value < 0 or value > 100):
+            raise serializers.ValidationError('Profit percentage must be between 0 and 100.')
+        return value
+
+    def validate_profit_cycle_hours(self, value):
+        if value is not None and value < 1:
+            raise serializers.ValidationError('Profit cycle hours must be at least 1.')
+        return value
