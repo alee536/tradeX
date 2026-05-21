@@ -187,9 +187,14 @@ export function ClaimPipelineHero({ schedule }: { schedule: PurchaseClaimSchedul
             Timer complete — claim your {schedule.stages.find((s) => s.can_request)?.percent}% payout below.
           </p>
         ) : schedule.stages.some((s) => s.state === "pending") ? (
-          <p className="text-sm text-blue-300 text-center py-4">
-            Claim submitted — waiting for admin approval.
-          </p>
+          <div className="text-center py-4 space-y-2">
+            <p className="text-sm text-blue-300">
+              Claim submitted — waiting for admin approval.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              No countdown while admin reviews. The next stage timer starts after approval.
+            </p>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-4">
             Processing your claim schedule…

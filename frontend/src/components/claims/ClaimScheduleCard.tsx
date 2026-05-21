@@ -33,6 +33,63 @@ function formatCountdown(totalSeconds?: number | null): string {
   return `${minutes}m ${secs}s`;
 }
 
+function getStageButtonConfig(stage: PurchaseClaimStage, isSubmitting: boolean) {
+  const pctLabel = `Claim ${stage.percent}%`;
+
+  switch (stage.state) {
+    case "approved":
+      return {
+        label: "Completed",
+        className:
+          "w-full bg-white/10 text-muted-foreground border border-white/10 cursor-not-allowed hover:bg-white/10",
+        disabled: true,
+      };
+    case "pending":
+      return {
+        label: "Awaiting admin",
+        className:
+          "w-full bg-blue-500/15 text-blue-300/90 border border-blue-500/30 cursor-not-allowed hover:bg-blue-500/15",
+        disabled: true,
+      };
+    case "rejected":
+      return {
+        label: isSubmitting ? "Submitting…" : `Resubmit ${stage.percent}%`,
+        className: isSubmitting
+          ? "w-full bg-green-600/70 text-white cursor-wait"
+          : "w-full bg-amber-600 hover:bg-amber-700 text-white font-semibold",
+        disabled: isSubmitting || !stage.can_request,
+      };
+    case "available":
+      return {
+        label: isSubmitting ? "Submitting…" : pctLabel,
+        className: isSubmitting
+          ? "w-full bg-green-600/70 text-white cursor-wait"
+          : "w-full bg-green-600 hover:bg-green-700 text-white font-semibold",
+        disabled: isSubmitting || !stage.can_request,
+      };
+    default:
+      return {
+        label: pctLabel,
+        className:
+          "w-full bg-white/5 text-muted-foreground/70 border border-white/10 cursor-not-allowed hover:bg-white/5",
+        disabled: true,
+      };
+  }
+}
+
+function stageCardShellClass(stage: PurchaseClaimStage) {
+  if (stage.state === "approved") {
+    return "border-green-500/25 bg-green-500/5 opacity-90";
+  }
+  if (stage.state === "available") {
+    return "border-amber-500/40 bg-amber-500/5 ring-1 ring-amber-500/20";
+  }
+  if (stage.state === "pending") {
+    return "border-blue-500/25 bg-blue-500/5";
+  }
+  return "border-white/10 bg-black/30";
+}
+
 function stageBadge(stage: PurchaseClaimStage) {
   switch (stage.state) {
     case "approved":
@@ -103,10 +160,12 @@ function StageCard({
   }, [stage.seconds_until_unlock, stage.stage]);
 
   const canClick = stage.can_request && !isSubmitting;
-  const stageLabel = `Claim ${stage.percent}%`;
+  const button = getStageButtonConfig(stage, isSubmitting);
 
   return (
-    <div className="flex-1 min-w-[180px] rounded-lg border border-white/10 bg-black/30 p-4 space-y-3">
+    <div
+      className={`flex-1 min-w-[180px] rounded-lg border p-4 space-y-3 transition-colors ${stageCardShellClass(stage)}`}
+    >
       <div className="flex justify-between items-center">
         <div className="text-sm font-semibold text-white">
           Stage {stage.stage}
@@ -145,16 +204,16 @@ function StageCard({
 
       <Button
         size="sm"
-        className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
-        disabled={!canClick}
-        onClick={() => onClaim(stage.stage)}
+        className={button.className}
+        disabled={button.disabled}
+        onClick={() => canClick && onClaim(stage.stage)}
       >
-        {isSubmitting ? (
+        {isSubmitting && stage.can_request ? (
           <>
             <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Submitting…
           </>
         ) : (
-          stageLabel
+          button.label
         )}
       </Button>
     </div>
