@@ -4,6 +4,7 @@ set -euo pipefail
 
 EMAIL="${RENDER_ADMIN_EMAIL:-}"
 PASSWORD="${RENDER_ADMIN_PASSWORD:-}"
+USERNAME="${RENDER_ADMIN_USERNAME:-}"
 FULL_NAME="${RENDER_ADMIN_FULL_NAME:-Admin}"
 
 if [ -z "$EMAIL" ] || [ -z "$PASSWORD" ]; then
@@ -19,16 +20,19 @@ email = """${EMAIL}"""
 password = """${PASSWORD}"""
 full_name = """${FULL_NAME}"""
 
+login_username = """${USERNAME}""" or email
 user, created = User.objects.update_or_create(
     email=email,
     defaults={
-        "username": email,
+        "username": login_username,
         "full_name": full_name,
         "is_staff": True,
         "is_superuser": True,
         "is_active": True,
     },
 )
+if login_username != user.username:
+    user.username = login_username
 user.set_password(password)
 user.is_staff = True
 user.is_superuser = True

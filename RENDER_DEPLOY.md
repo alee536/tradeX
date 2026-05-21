@@ -59,9 +59,12 @@ Add env vars from `backend/.env.render.example`.
 
 | Variable | Example |
 |----------|---------|
-| `RENDER_ADMIN_EMAIL` | `admin@gmail.com` |
+| `RENDER_ADMIN_EMAIL` | admin login email |
 | `RENDER_ADMIN_PASSWORD` | strong password |
+| `RENDER_ADMIN_USERNAME` | display username (optional) |
 | `RENDER_ADMIN_FULL_NAME` | `Admin` (optional) |
+
+On first deploy with a new disk, existing `backend/tradex/db.sqlite3` is **copied once** to `/var/data/db.sqlite3` so users and purchases are not lost.
 
 Redeploy once. `start-render.sh` creates/updates this user on every start without wiping existing data.
 

@@ -13,11 +13,22 @@ _ensure_dir() {
   }
 }
 
+LEGACY_DB="${ROOT}/backend/tradex/db.sqlite3"
+LEGACY_MEDIA="${ROOT}/backend/media"
+
 if [ -n "${DATABASE_PATH:-}" ]; then
   _ensure_dir "$(dirname "$DATABASE_PATH")"
+  if [ -f "$LEGACY_DB" ] && [ ! -f "$DATABASE_PATH" ]; then
+    echo "==> Copying existing SQLite DB to persistent disk (one-time)..."
+    cp -a "$LEGACY_DB" "$DATABASE_PATH"
+  fi
 fi
 if [ -n "${MEDIA_ROOT:-}" ]; then
   _ensure_dir "$MEDIA_ROOT"
+  if [ -d "$LEGACY_MEDIA" ] && [ -z "$(ls -A "$MEDIA_ROOT" 2>/dev/null || true)" ]; then
+    echo "==> Copying existing media uploads to persistent disk (one-time)..."
+    cp -a "$LEGACY_MEDIA/." "$MEDIA_ROOT/"
+  fi
 fi
 
 export PYTHONPATH="${ROOT}/backend/tradex${PYTHONPATH:+:${PYTHONPATH}}"
