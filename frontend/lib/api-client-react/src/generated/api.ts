@@ -28,6 +28,7 @@ import type {
   ApproveWithdrawalInput,
   AuthResponse,
   DashboardSummary,
+  ProfitClaimResponse,
   HealthStatus,
   ListNotificationsParams,
   ListPurchasesParams,
@@ -463,6 +464,81 @@ export function useGetDashboardSummary<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Claim profit reward for current cycle
+ */
+export const getClaimProfitRewardUrl = () => {
+  return `/api/profit/claim`;
+};
+
+export const claimProfitReward = async (
+  options?: RequestInit,
+): Promise<ProfitClaimResponse> => {
+  return customFetch<ProfitClaimResponse>(getClaimProfitRewardUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getClaimProfitRewardMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimProfitReward>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof claimProfitReward>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["claimProfitReward"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof claimProfitReward>>,
+    void
+  > = () => claimProfitReward(requestOptions);
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ClaimProfitRewardMutationResult = NonNullable<
+  Awaited<ReturnType<typeof claimProfitReward>>
+>;
+export type ClaimProfitRewardMutationError = ErrorType<unknown>;
+
+export const useClaimProfitReward = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof claimProfitReward>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof claimProfitReward>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getClaimProfitRewardMutationOptions(options));
+};
 
 /**
  * @summary List user purchases

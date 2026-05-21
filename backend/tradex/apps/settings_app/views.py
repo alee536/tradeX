@@ -1,9 +1,11 @@
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import SystemSettings
-from .serializers import SystemSettingsSerializer
+from .models import ProfitClaim, SystemSettings
+from .profit import ProfitClaimError, compute_user_profit_summary, execute_profit_claim
+from .serializers import ProfitClaimSerializer, SystemSettingsSerializer
 
 
 def _profit_public_fields(settings):
@@ -20,48 +22,92 @@ def _profit_public_fields(settings):
     return {'profit_enabled': False}
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def get_settings(request):
-    settings = SystemSettings.get_settings()
-    return Response(SystemSettingsSerializer(settings).data)
+class AdminSettingsView(APIView):
+    """============== Admin system settings (read / update) =============="""
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get(self, request):
+        settings = SystemSettings.get_settings()
+        return Response(SystemSettingsSerializer(settings).data)
+
+    def patch(self, request):
+        settings_obj = SystemSettings.get_settings()
+        serializer = SystemSettingsSerializer(
+            settings_obj,
+            data=request.data,
+            partial=True,
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def public_settings(request):
-    settings = SystemSettings.get_settings()
-    payload = {
-        'coin_rate': settings.coin_rate,
-        'currency_symbol': settings.currency_symbol,
-        'last_updated_at': settings.last_updated_at,
-        'min_purchase': settings.min_purchase,
-        'max_purchase': settings.max_purchase,
-        'usdt_wallet_address': settings.usdt_wallet_address,
-    }
-    payload.update(_profit_public_fields(settings))
-    return Response(payload)
+class PublicSettingsView(APIView):
+    """============== Public settings for SPA (no auth) =============="""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        settings = SystemSettings.get_settings()
+        payload = {
+            'coin_rate': settings.coin_rate,
+            'currency_symbol': settings.currency_symbol,
+            'last_updated_at': settings.last_updated_at,
+            'min_purchase': settings.min_purchase,
+            'max_purchase': settings.max_purchase,
+            'usdt_wallet_address': settings.usdt_wallet_address,
+        }
+        payload.update(_profit_public_fields(settings))
+        return Response(payload)
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def public_price(request):
-    settings = SystemSettings.get_settings()
-    return Response({
-        'price': settings.coin_rate,
-        'currency': settings.currency_symbol,
-        'last_updated_at': settings.last_updated_at,
-        'change_24h_percent': None,
-        'source': 'settings',
-    })
+class PublicPriceView(APIView):
+    """============== Public coin price endpoint =============="""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        settings = SystemSettings.get_settings()
+        return Response({
+            'price': settings.coin_rate,
+            'currency': settings.currency_symbol,
+            'last_updated_at': settings.last_updated_at,
+            'change_24h_percent': None,
+            'source': 'settings',
+        })
 
 
-@api_view(['PATCH'])
-@permission_classes([IsAuthenticated, IsAdminUser])
-def update_settings(request):
-    settings_obj = SystemSettings.get_settings()
-    serializer = SystemSettingsSerializer(settings_obj, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response(serializer.data)
-    return Response(serializer.errors, status=400)
+class ProfitClaimView(APIView):
+    """============== Claim profit reward for current cycle =============="""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        try:
+            summary = execute_profit_claim(request.user)
+        except ProfitClaimError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({
+            'message': 'Profit reward claimed successfully.',
+            'profit': summary,
+        }, status=status.HTTP_201_CREATED)
+
+
+class ProfitClaimHistoryView(APIView):
+    """============== User profit claim history =============="""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        claims = ProfitClaim.objects.filter(user=request.user).order_by('-claimed_at')[:50]
+        return Response(ProfitClaimSerializer(claims, many=True).data)
+
+
+# Backward-compatible callables for URL includes that reference function names.
+get_settings = AdminSettingsView.as_view()
+update_settings = AdminSettingsView.as_view()
+public_settings = PublicSettingsView.as_view()
+public_price = PublicPriceView.as_view()

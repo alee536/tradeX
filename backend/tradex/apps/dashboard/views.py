@@ -5,7 +5,7 @@ from apps.purchases.models import Purchase
 from apps.withdrawals.models import Withdrawal
 from apps.notifications.models import Notification
 from apps.settings_app.models import SystemSettings
-from apps.settings_app.profit import compute_user_profit_summary
+from apps.settings_app.profit import compute_user_profit_summary, get_profit_bonus_coins
 
 
 @api_view(['GET'])
@@ -26,7 +26,8 @@ def dashboard_summary(request):
     # Coins that are assigned but not yet unlocked (shown on dashboard as pending/locked coins)
     locked_coins = max(0, float(total_purchased) - float(total_unlocked))
 
-    available_withdrawal = max(0, float(total_unlocked) - float(total_withdrawn))
+    profit_bonus = get_profit_bonus_coins(user)
+    available_withdrawal = max(0, float(total_unlocked) + profit_bonus - float(total_withdrawn))
     settings_obj = SystemSettings.get_settings()
 
     unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
@@ -45,5 +46,6 @@ def dashboard_summary(request):
         'pending_withdrawal': float(locked_coins),
         'sponsor_earnings': float(user.sponsor_earnings),
         'unread_notifications': unread_notifications,
+        'profit_bonus_coins': profit_bonus,
         'profit': profit,
     })
