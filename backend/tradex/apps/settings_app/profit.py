@@ -14,7 +14,10 @@ def compute_user_profit_summary(user, settings_obj):
     """
     from apps.purchases.models import Purchase
 
-    if not settings_obj.profit_enabled:
+    try:
+        if not settings_obj.profit_enabled:
+            return {'enabled': False}
+    except Exception:
         return {'enabled': False}
 
     pct = Decimal(str(settings_obj.profit_percentage or 0))

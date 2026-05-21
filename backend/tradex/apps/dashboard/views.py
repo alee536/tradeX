@@ -31,7 +31,10 @@ def dashboard_summary(request):
 
     unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
 
-    profit = compute_user_profit_summary(user, settings_obj)
+    try:
+        profit = compute_user_profit_summary(user, settings_obj)
+    except Exception:
+        profit = {'enabled': False}
 
     return Response({
         'total_purchased': float(total_purchased),
