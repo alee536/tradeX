@@ -2,6 +2,7 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # ============ PYTHON / DJANGO ============
+.venv/
 __pycache__/
 *.py[cod]
 *$py.class
@@ -90,6 +91,18 @@ tmp/
 /connect.lock
 /libpeerconnection.log
 /typings
+
+# ============ DOCKER (local dev only — not for production) ============
+.env.docker
+.env.docker.*
+.env.docker.example
+docker-compose.yml
+docker-compose.*.yml
+docker-compose.override.yml
+.dockerignore
+backend/Dockerfile
+frontend/Dockerfile
+scripts/docker-dev.sh
 
 # ============ DEVELOPMENT / TEMPORARY ============
 archive/
