@@ -15,7 +15,8 @@ export default defineConfig({
     host: "0.0.0.0",
     proxy: {
       "/api": {
-        target: "http://127.0.0.1:8000",
+        // Local pnpm dev: 127.0.0.1:8000 | Docker Compose: set VITE_API_PROXY_TARGET=http://backend:8000
+        target: process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:8000",
         changeOrigin: true,
       },
     },
@@ -35,5 +36,11 @@ export default defineConfig({
   preview: {
     port,
     host: "0.0.0.0",
+    proxy: {
+      "/api": {
+        target: process.env.VITE_API_PROXY_TARGET || "http://127.0.0.1:8000",
+        changeOrigin: true,
+      },
+    },
   },
 });
