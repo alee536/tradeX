@@ -24,6 +24,15 @@ export PYTHONPATH="${ROOT}/backend/tradex${PYTHONPATH:+:${PYTHONPATH}}"
 cd "$ROOT/backend"
 
 echo "==> Applying migrations on persistent database..."
+python manage.py shell -c "
+import os
+from django.conf import settings
+db = settings.DATABASES['default']['NAME']
+print('==> DATABASE file:', db)
+print('==> DATABASE_PATH env:', os.environ.get('DATABASE_PATH') or '(not set)')
+print('==> DB exists on disk:', os.path.exists(db) if db else False)
+"
+
 python manage.py migrate --noinput
 
 bash "$ROOT/scripts/ensure-render-admin.sh"
