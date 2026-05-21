@@ -81,6 +81,65 @@ export interface ProfitClaimResponse {
   profit: DashboardProfitSummary;
 }
 
+export interface PurchaseClaimStageRecord {
+  id: number;
+  status: "pending" | "approved" | "rejected";
+  amount_coins: number;
+  amount_usdt_snapshot: number;
+  /** @nullable */
+  wallet_address?: string | null;
+  /** @nullable */
+  manual_tx_hash?: string | null;
+  /** @nullable */
+  rejection_reason?: string | null;
+  /** @nullable */
+  created_at?: string | null;
+  /** @nullable */
+  approved_at?: string | null;
+  /** @nullable */
+  rejected_at?: string | null;
+}
+
+export interface PurchaseClaimStage {
+  stage: 1 | 2 | 3;
+  percent: number;
+  amount_coins: number;
+  amount_usdt: number;
+  state: "locked" | "available" | "pending" | "approved" | "rejected";
+  can_request: boolean;
+  /** @nullable */
+  unlock_at?: string | null;
+  /** @nullable */
+  seconds_until_unlock?: number | null;
+  /** @nullable */
+  claim?: PurchaseClaimStageRecord | null;
+}
+
+export interface PurchaseClaimSchedule {
+  purchase_id: number;
+  transaction_id: string;
+  /** @nullable */
+  reference_time?: string | null;
+  total_coins: number;
+  total_usdt: number;
+  stages: PurchaseClaimStage[];
+}
+
+export interface PurchaseClaimScheduleResponse {
+  purchases: PurchaseClaimSchedule[];
+}
+
+export interface PurchaseClaimCreateInput {
+  purchase_id: number;
+  stage: 1 | 2 | 3;
+  wallet_address: string;
+}
+
+export interface PurchaseClaimCreateResponse {
+  message: string;
+  schedule: PurchaseClaimSchedule;
+}
+
 export interface DashboardSummary {
   total_purchased: number;
   total_sold: number;

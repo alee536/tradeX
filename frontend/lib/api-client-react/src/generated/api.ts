@@ -29,6 +29,9 @@ import type {
   AuthResponse,
   DashboardSummary,
   ProfitClaimResponse,
+  PurchaseClaimCreateInput,
+  PurchaseClaimCreateResponse,
+  PurchaseClaimScheduleResponse,
   HealthStatus,
   ListNotificationsParams,
   ListPurchasesParams,
@@ -538,6 +541,140 @@ export const useClaimProfitReward = <
   TContext
 > => {
   return useMutation(getClaimProfitRewardMutationOptions(options));
+};
+
+/**
+ * @summary Get staged claim schedule for user's purchases
+ */
+export const getClaimScheduleUrl = (purchaseId?: number) => {
+  return purchaseId
+    ? `/api/claims/schedule?purchase_id=${purchaseId}`
+    : `/api/claims/schedule`;
+};
+
+export const getClaimSchedule = async (
+  purchaseId?: number,
+  options?: RequestInit,
+): Promise<PurchaseClaimScheduleResponse> => {
+  return customFetch<PurchaseClaimScheduleResponse>(
+    getClaimScheduleUrl(purchaseId),
+    { ...options, method: "GET" },
+  );
+};
+
+export const getGetClaimScheduleQueryKey = (purchaseId?: number) => {
+  return purchaseId
+    ? ([`/api/claims/schedule`, purchaseId] as const)
+    : ([`/api/claims/schedule`] as const);
+};
+
+export function useGetClaimSchedule<
+  TData = Awaited<ReturnType<typeof getClaimSchedule>>,
+  TError = ErrorType<unknown>,
+>(
+  purchaseId?: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getClaimSchedule>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey =
+    queryOptions?.queryKey ?? getGetClaimScheduleQueryKey(purchaseId);
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getClaimSchedule>>
+  > = ({ signal }) =>
+    getClaimSchedule(purchaseId, { signal, ...requestOptions });
+
+  const queryOpts = { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getClaimSchedule>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+
+  const query = useQuery(queryOpts) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+  return { ...query, queryKey: queryOpts.queryKey };
+}
+
+/**
+ * @summary Submit a staged claim request
+ */
+export const getCreatePurchaseClaimUrl = () => {
+  return `/api/claims`;
+};
+
+export const createPurchaseClaim = async (
+  input: PurchaseClaimCreateInput,
+  options?: RequestInit,
+): Promise<PurchaseClaimCreateResponse> => {
+  return customFetch<PurchaseClaimCreateResponse>(getCreatePurchaseClaimUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(input),
+  });
+};
+
+export const getCreatePurchaseClaimMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPurchaseClaim>>,
+    TError,
+    { data: BodyType<PurchaseClaimCreateInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createPurchaseClaim>>,
+  TError,
+  { data: BodyType<PurchaseClaimCreateInput> },
+  TContext
+> => {
+  const mutationKey = ["createPurchaseClaim"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createPurchaseClaim>>,
+    { data: BodyType<PurchaseClaimCreateInput> }
+  > = (props) => {
+    const { data } = props ?? {};
+    return createPurchaseClaim(data, requestOptions);
+  };
+  return { mutationFn, ...mutationOptions };
+};
+
+export const useCreatePurchaseClaim = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createPurchaseClaim>>,
+    TError,
+    { data: BodyType<PurchaseClaimCreateInput> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createPurchaseClaim>>,
+  TError,
+  { data: BodyType<PurchaseClaimCreateInput> },
+  TContext
+> => {
+  return useMutation(getCreatePurchaseClaimMutationOptions(options));
 };
 
 /**

@@ -1,6 +1,11 @@
-from django.db import models
-from django.conf import settings
 from decimal import Decimal
+
+from django.conf import settings
+from django.db import models
+
+
+# ============== Staged Withdrawal / Claim Constants ==============
+CLAIM_STAGE_PERCENTAGES = (Decimal('50'), Decimal('25'), Decimal('25'))
 
 
 class Withdrawal(models.Model):
@@ -96,3 +101,84 @@ class Withdrawal(models.Model):
 
     def __str__(self):
         return f"Withdrawal {self.id} - {self.user.username} - {self.amount}"
+
+
+class PurchaseClaim(models.Model):
+    """
+    ============== Per-Purchase Staged Claim ==============
+
+    Each approved purchase has up to 3 claim stages (50% / 25% / 25%).
+    Timers are measured from backend timestamps:
+        - Stage 1 unlocks 72h after purchase approval (configurable).
+        - Stage N (N>1) unlocks `stageN_hours` after Stage N-1 was approved.
+    """
+
+    STAGE_CHOICES = (
+        (1, 'Stage 1'),
+        (2, 'Stage 2'),
+        (3, 'Stage 3'),
+    )
+
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('approved', 'Approved'),
+        ('rejected', 'Rejected'),
+    )
+
+    purchase = models.ForeignKey(
+        'purchases.Purchase',
+        on_delete=models.CASCADE,
+        related_name='claims',
+        blank=True,
+        null=True,
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='purchase_claims',
+        blank=True,
+        null=True,
+        db_index=True,
+    )
+    stage = models.PositiveSmallIntegerField(
+        choices=STAGE_CHOICES,
+        blank=True,
+        null=True,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending',
+        db_index=True,
+        blank=True,
+    )
+    amount_coins = models.DecimalField(
+        max_digits=20, decimal_places=8, blank=True, null=True,
+    )
+    amount_usdt_snapshot = models.DecimalField(
+        max_digits=20, decimal_places=8, blank=True, null=True,
+    )
+    coin_rate_snapshot = models.DecimalField(
+        max_digits=20, decimal_places=8, blank=True, null=True,
+    )
+    wallet_address = models.CharField(max_length=255, blank=True, null=True)
+    manual_tx_hash = models.CharField(max_length=255, blank=True, null=True)
+    rejection_reason = models.TextField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    approved_at = models.DateTimeField(blank=True, null=True)
+    rejected_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Purchase claim'
+        verbose_name_plural = 'Purchase claims'
+        indexes = [
+            models.Index(fields=['purchase', 'stage'], name='claim_purchase_stage_idx'),
+            models.Index(fields=['user', 'status'], name='claim_user_status_idx'),
+        ]
+
+    def __str__(self):
+        return (
+            f"PurchaseClaim purchase={self.purchase_id} stage={self.stage} "
+            f"status={self.status} amount={self.amount_coins}"
+        )
