@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   XCircle,
 } from "lucide-react";
+import { ClaimPipelineHero } from "./ClaimPipelineHero";
 
 function formatCountdown(totalSeconds?: number | null): string {
   if (totalSeconds == null) return "—";
@@ -230,6 +231,10 @@ export function ClaimScheduleCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
+        <ClaimPipelineHero schedule={schedule} />
+        <p className="text-xs text-muted-foreground mb-3">
+          Staged payouts: 50% · 25% · 25% — only the active stage can be claimed.
+        </p>
         <div className="flex flex-wrap gap-3">
           {schedule.stages.map((stage) => (
             <StageCard
