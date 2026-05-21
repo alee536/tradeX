@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getAdminUrl, type AdminPathKey } from "@/lib/admin-url";
 import { SocialLinks } from "@/components/ui/social-links";
 import { Logo } from "../ui/logo";
 
@@ -24,6 +25,12 @@ interface SidebarItem {
   label: string;
   href: string;
   adminOnly?: boolean;
+}
+
+interface AdminSidebarItem {
+  icon: React.ElementType;
+  label: string;
+  adminPath: AdminPathKey;
 }
 
 const items: SidebarItem[] = [
@@ -37,20 +44,23 @@ const items: SidebarItem[] = [
   { icon: Settings, label: "Settings", href: "/settings" },
 ];
 
-const adminItems: SidebarItem[] = [
-  { icon: ShieldAlert, label: "Admin Dashboard", href: "/admin", adminOnly: true },
-  { icon: Users, label: "Users", href: "/admin/users", adminOnly: true },
-  { icon: ShoppingCart, label: "Purchases", href: "/admin/purchases", adminOnly: true },
-  { icon: ArrowDownToLine, label: "Withdrawals", href: "/admin/withdrawals", adminOnly: true },
-  { icon: Settings, label: "System Settings", href: "/admin/settings", adminOnly: true },
-  { icon: Users, label: "Sponsor Relations", href: "/admin/sponsor", adminOnly: true },
+const adminItems: AdminSidebarItem[] = [
+  { icon: ShieldAlert, label: "Admin Dashboard", adminPath: "dashboard" },
+  { icon: Users, label: "Users", adminPath: "users" },
+  { icon: ShoppingCart, label: "Purchases", adminPath: "purchases" },
+  { icon: ArrowDownToLine, label: "Withdrawals", adminPath: "withdrawals" },
+  { icon: Settings, label: "System Settings", adminPath: "settings" },
+  { icon: Users, label: "Sponsor Relations", adminPath: "sponsor" },
 ];
 
 export function Sidebar({ className, onItemClick }: { className?: string; onItemClick?: () => void }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
 
-  const allItems = user?.is_admin ? [...items, ...adminItems] : items;
+  const isAdminUser =
+    !!(user as { is_admin?: boolean; is_staff?: boolean; is_superuser?: boolean })?.is_admin ||
+    !!(user as { is_staff?: boolean })?.is_staff ||
+    !!(user as { is_superuser?: boolean })?.is_superuser;
 
   return (
     <aside
@@ -75,7 +85,7 @@ export function Sidebar({ className, onItemClick }: { className?: string; onItem
       </div>
 
       <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-        {allItems.map((item) => (
+        {items.map((item) => (
           <Link key={item.href} href={item.href}>
             <div
               onClick={onItemClick}
@@ -91,6 +101,23 @@ export function Sidebar({ className, onItemClick }: { className?: string; onItem
             </div>
           </Link>
         ))}
+        {isAdminUser &&
+          adminItems.map((item) => {
+            const adminHref = getAdminUrl(item.adminPath);
+            return (
+              <a key={item.adminPath} href={adminHref} onClick={onItemClick}>
+                <div
+                  className={cn(
+                    "flex items-center gap-3 rounded-xl px-3 py-3 text-sm transition-colors duration-200 cursor-pointer",
+                    "text-gray-200 hover:bg-white/10"
+                  )}
+                >
+                  <item.icon className="h-4 w-4 text-blue-400 shrink-0" />
+                  <span>{item.label}</span>
+                </div>
+              </a>
+            );
+          })}
       </nav>
 
       <div className="border-t border-white/10 p-4">

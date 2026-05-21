@@ -5,6 +5,7 @@ from apps.purchases.models import Purchase
 from apps.withdrawals.models import Withdrawal
 from apps.notifications.models import Notification
 from apps.settings_app.models import SystemSettings
+from apps.settings_app.profit import compute_user_profit_summary
 
 
 @api_view(['GET'])
@@ -30,6 +31,11 @@ def dashboard_summary(request):
 
     unread_notifications = Notification.objects.filter(user=user, is_read=False).count()
 
+    try:
+        profit = compute_user_profit_summary(user, settings_obj)
+    except Exception:
+        profit = {'enabled': False}
+
     return Response({
         'total_purchased': float(total_purchased),
         'total_sold': 0,
@@ -39,4 +45,5 @@ def dashboard_summary(request):
         'pending_withdrawal': float(locked_coins),
         'sponsor_earnings': float(user.sponsor_earnings),
         'unread_notifications': unread_notifications,
+        'profit': profit,
     })

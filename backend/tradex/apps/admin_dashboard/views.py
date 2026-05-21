@@ -465,7 +465,10 @@ def coin_settings(request):
         stage3_hours = request.POST.get('stage3_hours')
         stage1_percent = request.POST.get('stage1_percent')
         stage2_percent = request.POST.get('stage2_percent')
-        
+        profit_enabled = request.POST.get('profit_enabled') == 'on'
+        profit_percentage = request.POST.get('profit_percentage')
+        profit_cycle_hours = request.POST.get('profit_cycle_hours')
+
         try:
             if new_rate:
                 settings.coin_rate = Decimal(new_rate)
@@ -489,6 +492,20 @@ def coin_settings(request):
                 messages.error(request, 'Stage 1 and Stage 2 percentages cannot exceed 100%.')
                 return render(request, 'admin/coin_settings.html', {'settings': settings})
             settings.stage3_percent = remainder_percent
+
+            settings.profit_enabled = profit_enabled
+            if profit_percentage is not None and profit_percentage != '':
+                pct = Decimal(profit_percentage)
+                if pct < 0 or pct > 100:
+                    messages.error(request, 'Profit percentage must be between 0 and 100.')
+                    return render(request, 'admin/coin_settings.html', {'settings': settings})
+                settings.profit_percentage = pct
+            if profit_cycle_hours:
+                cycle_h = int(profit_cycle_hours)
+                if cycle_h < 1:
+                    messages.error(request, 'Profit cycle hours must be at least 1.')
+                    return render(request, 'admin/coin_settings.html', {'settings': settings})
+                settings.profit_cycle_hours = cycle_h
 
             settings.save()
             

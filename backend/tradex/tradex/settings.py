@@ -69,6 +69,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.admin_dashboard.context_processors.frontend_url',
             ],
         },
     },
@@ -166,7 +167,13 @@ else:
 JWT_SECRET = os.environ.get('JWT_SECRET', SECRET_KEY)
 JWT_EXPIRY_HOURS = int(os.environ.get('JWT_EXPIRY_HOURS', str(24 * 7)))
 
-SITE_URL = os.environ.get('SITE_URL', 'https://24tradex.com')
+SITE_URL = os.environ.get('SITE_URL', 'https://24tradex.com').rstrip('/')
+
+# React SPA (trader app) — used by Django admin "Home" link
+_frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')
+FRONTEND_URL = _frontend_url or (
+    'http://127.0.0.1:5173' if DEBUG else SITE_URL
+)
 
 # Production security (Render terminates SSL — trust X-Forwarded-Proto)
 if not DEBUG:

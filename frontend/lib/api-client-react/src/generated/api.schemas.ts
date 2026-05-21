@@ -48,13 +48,31 @@ export interface ProfileUpdate {
   wallet_address?: string | null;
 }
 
+export interface DashboardProfitSummary {
+  enabled: boolean;
+  profit_percentage?: number;
+  profit_cycle_hours?: number;
+  base_usdt?: number;
+  estimated_profit_usdt?: number;
+  total_after_profit_usdt?: number;
+  /** @nullable */
+  next_claim_at?: string | null;
+  /** @nullable */
+  seconds_until_claim?: number | null;
+}
+
 export interface DashboardSummary {
   total_purchased: number;
   total_sold: number;
   available_withdrawal: number;
+  /** @nullable */
+  available_withdrawal_usdt?: number;
+  /** @nullable */
+  current_coin_rate?: number;
   pending_withdrawal: number;
   sponsor_earnings: number;
   unread_notifications: number;
+  profit?: DashboardProfitSummary;
 }
 
 export type PurchaseStatus =
