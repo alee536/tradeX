@@ -109,7 +109,9 @@ export default function Withdraw() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Withdraw Tokens</h1>
-        <p className="text-muted-foreground mt-2">Claim your purchase in 3 staged payouts (50% / 25% / 25%).</p>
+        <p className="text-muted-foreground mt-2">
+          Deposit → timer → claim in three stages (50% / 25% / 25%). Countdown uses server time.
+        </p>
       </div>
 
       <section className="space-y-4">
