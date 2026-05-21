@@ -83,16 +83,20 @@ def sync_user_withdrawals(user):
 
 def get_available_balance(user):
     from apps.purchases.models import Purchase
-    from apps.settings_app.models import SystemSettings
+    from apps.settings_app.profit import get_profit_bonus_coins
 
     approved_purchases = Purchase.objects.filter(user=user, status='approved', is_coins_assigned=True)
     total_unlocked = sum(float(p.unlocked_amount) for p in approved_purchases)
-    total_assigned = sum(float(p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins) for p in approved_purchases)
+    total_assigned = sum(
+        float(p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins)
+        for p in approved_purchases
+    )
+    profit_bonus = get_profit_bonus_coins(user)
 
     total_withdrawn = sum(
         w.amount for w in Withdrawal.objects.filter(user=user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
     )
-    available = max(0.0, float(total_unlocked) - float(total_withdrawn))
+    available = max(0.0, float(total_unlocked) + profit_bonus - float(total_withdrawn))
     return available, float(total_unlocked), float(total_assigned)
 
 
@@ -152,12 +156,15 @@ def unlocked_amount(request):
 
     sync_user_withdrawals(request.user)
 
+    from apps.settings_app.profit import get_profit_bonus_coins
+
     approved_purchases = Purchase.objects.filter(user=request.user, status='approved', is_coins_assigned=True)
     total_unlocked = sum(p.unlocked_amount for p in approved_purchases)
+    profit_bonus = get_profit_bonus_coins(request.user)
     total_withdrawn = sum(
         w.amount for w in Withdrawal.objects.filter(user=request.user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
     )
-    available = float(total_unlocked) - float(total_withdrawn)
+    available = float(total_unlocked) + profit_bonus - float(total_withdrawn)
 
     breakdown = []
     settings_obj = SystemSettings.get_settings()

@@ -1,8 +1,13 @@
-import { useGetDashboardSummary, useListPurchases } from "@workspace/api-client-react";
+import {
+  useClaimProfitReward,
+  useGetDashboardSummary,
+  useListPurchases,
+} from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCrypto, formatCurrency } from "@/lib/utils";
-import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Gift } from "lucide-react";
+import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Gift, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
@@ -48,6 +53,7 @@ function formatCountdown(totalSeconds: number): string {
 function ProfitRewardCard({
   profit,
   isLoading,
+  onClaimSuccess,
 }: {
   profit: {
     enabled: boolean;
@@ -56,11 +62,24 @@ function ProfitRewardCard({
     base_usdt?: number;
     estimated_profit_usdt?: number;
     total_after_profit_usdt?: number;
+    claimable_usdt?: number;
+    claimable_coins?: number;
+    can_claim?: boolean;
+    total_claimed_usdt?: number;
+    total_claimed_coins?: number;
     next_claim_at?: string | null;
     seconds_until_claim?: number | null;
   } | undefined;
   isLoading: boolean;
+  onClaimSuccess?: () => void;
 }) {
+  const claimMutation = useClaimProfitReward({
+    mutation: {
+      onSuccess: () => {
+        onClaimSuccess?.();
+      },
+    },
+  });
   const [secondsLeft, setSecondsLeft] = useState<number | null>(
     profit?.seconds_until_claim ?? null
   );
@@ -116,23 +135,53 @@ function ProfitRewardCard({
             </p>
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground border-t border-white/10 pt-4">
+        {(profit.total_claimed_usdt ?? 0) > 0 && (
+          <p className="text-xs text-muted-foreground mt-3">
+            Lifetime claimed: {formatCurrency(profit.total_claimed_usdt ?? 0)} (
+            {formatCrypto(profit.total_claimed_coins ?? 0)})
+          </p>
+        )}
+        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground border-t border-white/10 pt-4">
           <Gift className="h-4 w-4 text-amber-400 shrink-0" />
-          <span>
-            Next reward:{" "}
-            <span className="text-white font-medium">
-              {secondsLeft !== null ? formatCountdown(secondsLeft) : "—"}
+          {profit.can_claim ? (
+            <span className="text-green-400 font-medium">Reward ready to claim</span>
+          ) : (
+            <span>
+              Next reward:{" "}
+              <span className="text-white font-medium">
+                {secondsLeft !== null ? formatCountdown(secondsLeft) : "—"}
+              </span>
+              {profit.profit_cycle_hours ? (
+                <span className="ml-2">(every {profit.profit_cycle_hours}h)</span>
+              ) : null}
             </span>
-            {profit.profit_cycle_hours ? (
-              <span className="ml-2">(every {profit.profit_cycle_hours}h)</span>
-            ) : null}
-          </span>
-          {profit.next_claim_at && (
+          )}
+          {profit.next_claim_at && !profit.can_claim && (
             <span className="text-xs w-full sm:w-auto">
               at {new Date(profit.next_claim_at).toLocaleString()}
             </span>
           )}
+          <Button
+            size="sm"
+            className="ml-auto bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+            disabled={!profit.can_claim || claimMutation.isPending}
+            onClick={() => claimMutation.mutate()}
+          >
+            {claimMutation.isPending ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Claiming…
+              </>
+            ) : (
+              `Claim +${formatCurrency(profit.claimable_usdt ?? profit.estimated_profit_usdt ?? 0)}`
+            )}
+          </Button>
         </div>
+        {claimMutation.isError && (
+          <p className="text-xs text-red-400 mt-2">
+            {(claimMutation.error as Error)?.message || "Claim failed. Try again later."}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -279,7 +328,11 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <ProfitRewardCard profit={summary?.profit} isLoading={isLoading} />
+        <ProfitRewardCard
+          profit={summary?.profit}
+          isLoading={isLoading}
+          onClaimSuccess={() => refetch?.()}
+        />
       </div>
       
       {/* More dashboard content could go here, like recent transactions */}

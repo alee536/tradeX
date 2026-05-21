@@ -13,6 +13,8 @@ export default defineConfig({
   server: {
     port,
     host: "0.0.0.0",
+    // Allow localhost and container IPs (e.g. 172.x) when developing in Docker
+    allowedHosts: true,
     proxy: {
       "/api": {
         // Local pnpm dev: 127.0.0.1:8000 | Docker Compose: set VITE_API_PROXY_TARGET=http://backend:8000
@@ -31,6 +33,10 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
     dedupe: ["react", "react-dom"],
+  },
+  // Local workspace package: do not pre-bundle stale deps (e.g. missing useClaimProfitReward)
+  optimizeDeps: {
+    exclude: ["@workspace/api-client-react"],
   },
   root: path.resolve(import.meta.dirname),
   build: {

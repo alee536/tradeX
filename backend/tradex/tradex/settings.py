@@ -142,8 +142,10 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 REST_FRAMEWORK = {
+    # JWT only for /api/ — SPA uses Bearer tokens. SessionAuthentication is not used here
+    # because admin session cookies (same localhost host, different port) would trigger
+    # CSRF on POST without a token. Django admin keeps its own session via middleware.
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
         'apps.accounts.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [

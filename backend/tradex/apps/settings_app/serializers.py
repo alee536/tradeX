@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import SystemSettings
+
+from .models import ProfitClaim, SystemSettings
 
 
 class SystemSettingsSerializer(serializers.ModelSerializer):
@@ -19,10 +20,29 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
 
     def validate_profit_percentage(self, value):
         if value is not None and (value < 0 or value > 100):
-            raise serializers.ValidationError('Profit percentage must be between 0 and 100.')
+            raise serializers.ValidationError(
+                'Profit percentage must be between 0 and 100.',
+            )
         return value
 
     def validate_profit_cycle_hours(self, value):
         if value is not None and value < 1:
-            raise serializers.ValidationError('Profit cycle hours must be at least 1.')
+            raise serializers.ValidationError(
+                'Profit cycle hours must be at least 1.',
+            )
         return value
+
+
+class ProfitClaimSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProfitClaim
+        fields = [
+            'id',
+            'amount_usdt',
+            'amount_coins',
+            'profit_percentage',
+            'profit_cycle_hours',
+            'base_usdt_snapshot',
+            'claimed_at',
+        ]
+        read_only_fields = fields

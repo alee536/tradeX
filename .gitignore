@@ -94,17 +94,10 @@ tmp/
 /libpeerconnection.log
 /typings
 
-# ============ DOCKER (local dev only — not for production) ============
+# ============ DOCKER (secrets only — compose/Dockerfiles are tracked in git) ============
 .env.docker
 .env.docker.*
-.env.docker.example
-docker-compose.yml
-docker-compose.*.yml
 docker-compose.override.yml
-.dockerignore
-backend/Dockerfile
-frontend/Dockerfile
-scripts/docker-dev.sh
 
 # ============ DEVELOPMENT / TEMPORARY ============
 archive/

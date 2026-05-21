@@ -55,10 +55,30 @@ export interface DashboardProfitSummary {
   base_usdt?: number;
   estimated_profit_usdt?: number;
   total_after_profit_usdt?: number;
+  claimable_usdt?: number;
+  claimable_coins?: number;
+  can_claim?: boolean;
+  total_claimed_usdt?: number;
+  total_claimed_coins?: number;
   /** @nullable */
   next_claim_at?: string | null;
   /** @nullable */
   seconds_until_claim?: number | null;
+}
+
+export interface ProfitClaimRecord {
+  id: number;
+  amount_usdt: number;
+  amount_coins: number;
+  profit_percentage: number;
+  profit_cycle_hours: number;
+  base_usdt_snapshot: number;
+  claimed_at: string;
+}
+
+export interface ProfitClaimResponse {
+  message: string;
+  profit: DashboardProfitSummary;
 }
 
 export interface DashboardSummary {
@@ -72,6 +92,7 @@ export interface DashboardSummary {
   pending_withdrawal: number;
   sponsor_earnings: number;
   unread_notifications: number;
+  profit_bonus_coins?: number;
   profit?: DashboardProfitSummary;
 }
 
