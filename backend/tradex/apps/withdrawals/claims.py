@@ -4,13 +4,13 @@
 Encapsulates the per-purchase staged claim/withdrawal logic.
 
 Business rules:
-    1. Timer for Stage 1 starts at purchase approval (coins assignment).
-    2. Stage 1 unlocks after `stage1_hours` (default 72h).
-    3. Stage N (N>1) unlocks after `stageN_hours` from when Stage N-1 was claimed.
-    4. Stage percentages come from `SystemSettings` (normalized to 100).
-    5. Claims auto-approve: coins credit the in-app wallet immediately.
-    6. Withdrawals still require admin approval (separate flow).
-    7. A new claim can only be created if that stage is not already approved.
+    1. Claimable total = purchase deposit + admin profit% (e.g. 100 + 10% = 110).
+    2. Timer for Stage 1 starts at purchase approval (coins assignment).
+    3. Stage 1 unlocks after `stage1_hours` (default 72h) — 50% of total-with-profit.
+    4. Stage 2 unlocks `stage2_hours` after stage 1 claimed — 25% of total.
+    5. Stage 3 unlocks `stage3_hours` after stage 2 claimed — remaining 25%.
+    6. Claims auto-approve: coins credit the in-app wallet immediately (no admin).
+    7. Withdrawals still require admin approval (separate flow).
 
 All timestamps are stored in the database; the frontend only renders the
 schedule returned by the API.
@@ -23,6 +23,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.notifications.utils import create_notification
+from apps.settings_app.purchase_totals import purchase_totals_with_profit
 
 
 class ClaimError(Exception):
@@ -57,14 +58,9 @@ def _normalized_percentages(settings_obj):
     return s1, s2, s3
 
 
-def _purchase_total_coins(purchase):
-    if purchase.approved_coin_amount is not None:
-        return Decimal(str(purchase.approved_coin_amount))
-    return Decimal(str(purchase.calculated_coins or 0))
-
-
-def _purchase_total_usdt(purchase):
-    return Decimal(str(purchase.amount or 0))
+def _purchase_totals(purchase, settings_obj):
+    totals = purchase_totals_with_profit(purchase, settings_obj)
+    return totals['total_coins'], totals['total_usdt'], totals
 
 
 def _stage_amounts(total_coins, total_usdt, percentages):
@@ -146,8 +142,7 @@ def get_purchase_schedule(purchase, settings_obj=None):
     now = timezone.now()
     ref = _purchase_reference_time(purchase)
     percentages = _normalized_percentages(settings_obj)
-    total_coins = _purchase_total_coins(purchase)
-    total_usdt = _purchase_total_usdt(purchase)
+    total_coins, total_usdt, totals_meta = _purchase_totals(purchase, settings_obj)
     stage_amounts = _stage_amounts(total_coins, total_usdt, percentages)
 
     claims_qs = PurchaseClaim.objects.filter(purchase=purchase)
@@ -182,6 +177,12 @@ def get_purchase_schedule(purchase, settings_obj=None):
         'purchase_id': purchase.id,
         'transaction_id': purchase.transaction_id,
         'reference_time': ref.isoformat() if ref else None,
+        'base_usdt': float(totals_meta['base_usdt']),
+        'base_coins': float(totals_meta['base_coins']),
+        'profit_usdt': float(totals_meta['profit_usdt']),
+        'profit_coins': float(totals_meta['profit_coins']),
+        'profit_percentage': totals_meta['profit_percentage'],
+        'profit_enabled': totals_meta['profit_enabled'],
         'total_coins': float(total_coins),
         'total_usdt': float(total_usdt),
         'stages': stages_payload,
@@ -207,8 +208,7 @@ def get_user_claim_schedule(user):
 
 def _stage_amount_for(purchase, stage, settings_obj):
     percentages = _normalized_percentages(settings_obj)
-    total_coins = _purchase_total_coins(purchase)
-    total_usdt = _purchase_total_usdt(purchase)
+    total_coins, total_usdt, _ = _purchase_totals(purchase, settings_obj)
     stage_amounts = _stage_amounts(total_coins, total_usdt, percentages)
     coins, usdt = stage_amounts[stage - 1]
     return coins, usdt

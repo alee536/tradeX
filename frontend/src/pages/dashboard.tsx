@@ -1,5 +1,4 @@
 import {
-  useClaimProfitReward,
   useGetDashboardSummary,
   useListPurchases,
 } from "@workspace/api-client-react";
@@ -7,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCrypto, formatCurrency } from "@/lib/utils";
-import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Gift, Loader2, Percent, Plus } from "lucide-react";
+import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Percent, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
@@ -53,46 +52,24 @@ function formatCountdown(totalSeconds: number): string {
 function ProfitRewardCard({
   profit,
   isLoading,
-  onClaimSuccess,
 }: {
   profit: {
     enabled: boolean;
     profit_percentage?: number;
-    profit_cycle_hours?: number;
+    stage1_hours?: number;
+    stage2_hours?: number;
+    stage3_hours?: number;
     purchase_count?: number;
     base_usdt?: number;
     estimated_profit_usdt?: number;
     total_after_profit_usdt?: number;
-    claimable_usdt?: number;
-    claimable_coins?: number;
-    can_claim?: boolean;
     total_claimed_usdt?: number;
     total_claimed_coins?: number;
-    next_claim_at?: string | null;
-    seconds_until_claim?: number | null;
+    claim_via_stages?: boolean;
   } | undefined;
   isLoading: boolean;
-  onClaimSuccess?: () => void;
 }) {
-  const claimMutation = useClaimProfitReward({
-    mutation: {
-      onSuccess: () => {
-        onClaimSuccess?.();
-      },
-    },
-  });
-  const [secondsLeft, setSecondsLeft] = useState<number | null>(
-    profit?.seconds_until_claim ?? null
-  );
-
-  useEffect(() => {
-    if (!profit?.enabled) return;
-    setSecondsLeft(profit.seconds_until_claim ?? null);
-    const id = setInterval(() => {
-      setSecondsLeft((prev) => (prev === null ? null : Math.max(0, prev - 1)));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [profit?.enabled, profit?.seconds_until_claim]);
+  const [, setLocation] = useLocation();
 
   if (isLoading) {
     return (
@@ -139,7 +116,7 @@ function ProfitRewardCard({
             <span className="text-green-400 font-bold text-lg">{formatCurrency(total)}</span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Admin profit rate is applied to your total USDT deposits; the +{pct}% is added on top.
+            Each purchase total includes +{pct}% profit. Claim on Withdraw: {profit.stage1_hours ?? 72}h → 50%, then +{profit.stage2_hours ?? 24}h → 25%, then +{profit.stage3_hours ?? 24}h → 25% (no admin approval).
           </p>
         </div>
 
@@ -167,47 +144,19 @@ function ProfitRewardCard({
             {formatCrypto(profit.total_claimed_coins ?? 0)})
           </p>
         )}
-        <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground border-t border-white/10 pt-4">
-          <Gift className="h-4 w-4 text-amber-400 shrink-0" />
-          {profit.can_claim ? (
-            <span className="text-green-400 font-medium">Reward ready to claim</span>
-          ) : (
-            <span>
-              Next reward:{" "}
-              <span className="text-white font-medium">
-                {secondsLeft !== null ? formatCountdown(secondsLeft) : "—"}
-              </span>
-              {profit.profit_cycle_hours ? (
-                <span className="ml-2">(every {profit.profit_cycle_hours}h)</span>
-              ) : null}
-            </span>
-          )}
-          {profit.next_claim_at && !profit.can_claim && (
-            <span className="text-xs w-full sm:w-auto">
-              at {new Date(profit.next_claim_at).toLocaleString()}
-            </span>
-          )}
+        <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-white/10 pt-4">
           <Button
             size="sm"
-            className="ml-auto bg-amber-500 hover:bg-amber-600 text-black font-semibold"
-            disabled={!profit.can_claim || claimMutation.isPending}
-            onClick={() => claimMutation.mutate()}
+            className="bg-amber-500 hover:bg-amber-600 text-black font-semibold"
+            onClick={() => setLocation("/withdraw")}
           >
-            {claimMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Claiming…
-              </>
-            ) : (
-              `Claim +${formatCurrency(profit.claimable_usdt ?? profit.estimated_profit_usdt ?? 0)}`
-            )}
+            <ArrowDownToLine className="h-4 w-4 mr-2" />
+            Claim stages on Withdraw
           </Button>
-        </div>
-        {claimMutation.isError && (
-          <p className="text-xs text-red-400 mt-2">
-            {(claimMutation.error as Error)?.message || "Claim failed. Try again later."}
+          <p className="text-xs text-muted-foreground">
+            Profit is paid in 50% / 25% / 25% slices — instant credit, not a withdrawal.
           </p>
-        )}
+        </div>
       </CardContent>
     </Card>
   );
@@ -388,11 +337,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <ProfitRewardCard
-          profit={summary?.profit}
-          isLoading={isLoading}
-          onClaimSuccess={() => refetch?.()}
-        />
+        <ProfitRewardCard profit={summary?.profit} isLoading={isLoading} />
       </div>
       
       {/* More dashboard content could go here, like recent transactions */}
