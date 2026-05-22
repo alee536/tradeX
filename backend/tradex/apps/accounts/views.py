@@ -8,7 +8,23 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from .models import User
-from .serializers import RegisterSerializer, LoginSerializer, UserProfileSerializer
+from .serializers import (
+    RegisterSerializer,
+    RegisterVerifySerializer,
+    RegisterResendSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetResendSerializer,
+    PasswordResetConfirmSerializer,
+    LoginSerializer,
+    UserProfileSerializer,
+)
+from .password_reset import (
+    PasswordResetError,
+    confirm_password_reset,
+    request_password_reset,
+    resend_password_reset_otp,
+)
+from .signup_otp import SignupOtpError, request_signup_otp, resend_signup_otp, verify_signup_otp
 
 
 def generate_token(user):
@@ -30,20 +46,141 @@ def home(request):
     return render(request, 'home.html')
 
 
+def _flow_error_response(exc):
+    return Response(
+        {'error': exc.message, 'code': exc.code},
+        status=exc.http_status,
+    )
+
+
 @api_view(['POST'])
 @authentication_classes([])
 @permission_classes([AllowAny])
 def register(request):
+    """
+    Legacy endpoint — signup requires email OTP verification first.
+    Use register_request_otp and register_verify instead.
+    """
+    return Response(
+        {
+            'error': 'Email verification required before account creation.',
+            'code': 'otp_required',
+        },
+        status=status.HTTP_400_BAD_REQUEST,
+    )
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def register_request_otp(request):
+    """Step 1: validate signup details and send OTP to email."""
     serializer = RegisterSerializer(data=request.data)
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    user = serializer.save()
+    try:
+        result = request_signup_otp(serializer.validated_data)
+    except SignupOtpError as exc:
+        return _flow_error_response(exc)
+
+    return Response(result, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def register_verify(request):
+    """Step 2: verify OTP and create the account."""
+    serializer = RegisterVerifySerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = verify_signup_otp(
+            serializer.validated_data['email'],
+            serializer.validated_data['otp'],
+        )
+    except SignupOtpError as exc:
+        return _flow_error_response(exc)
+
     token = generate_token(user)
     return Response({
         'token': token,
         'user': UserProfileSerializer(user).data,
     }, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def register_resend_otp(request):
+    """Resend OTP for a pending signup (cooldown applies)."""
+    serializer = RegisterResendSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        result = resend_signup_otp(serializer.validated_data['email'])
+    except SignupOtpError as exc:
+        return _flow_error_response(exc)
+
+    return Response(result, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def forgot_password_request(request):
+    """Step 1: send password reset OTP (generic response if email unknown)."""
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        result = request_password_reset(serializer.validated_data['email'])
+    except PasswordResetError as exc:
+        return _flow_error_response(exc)
+
+    return Response(result, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def forgot_password_resend(request):
+    """Resend password reset OTP (cooldown applies)."""
+    serializer = PasswordResetResendSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        result = resend_password_reset_otp(serializer.validated_data['email'])
+    except PasswordResetError as exc:
+        return _flow_error_response(exc)
+
+    return Response(result, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def forgot_password_confirm(request):
+    """Step 2: verify OTP and set new password."""
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        result = confirm_password_reset(
+            serializer.validated_data['email'],
+            serializer.validated_data['otp'],
+            serializer.validated_data['password'],
+        )
+    except PasswordResetError as exc:
+        return _flow_error_response(exc)
+
+    return Response(result, status=status.HTTP_200_OK)
 
 
 @api_view(['POST'])

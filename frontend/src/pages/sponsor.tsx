@@ -84,6 +84,7 @@ export default function Sponsor() {
       if (!response.ok) throw new Error("Failed to load settings");
       return response.json() as Promise<{
         usdt_wallet_address: string;
+        sponsor_payment_wallet_address?: string;
         sponsor_access_fee_usdt?: number;
       }>;
     },
@@ -120,6 +121,10 @@ export default function Sponsor() {
     stats?.sponsor_access_status === "pending" || !!stats?.pending_request;
   const canRequest = stats?.can_request ?? false;
   const fee = stats?.access_fee_usdt ?? liveSettings?.sponsor_access_fee_usdt ?? 5;
+  const sponsorPaymentWallet =
+    (stats as { sponsor_payment_wallet?: string } | undefined)?.sponsor_payment_wallet
+    ?? liveSettings?.sponsor_payment_wallet_address
+    ?? "";
   const publicLink = stats?.sponsor_link;
   const statusBadge = accessStatusLabel(stats?.sponsor_access_status);
 
@@ -158,9 +163,9 @@ export default function Sponsor() {
   };
 
   const handleCopyWallet = async () => {
-    if (liveSettings?.usdt_wallet_address) {
-      await copyToClipboard(liveSettings.usdt_wallet_address);
-      toast({ title: "Deposit wallet copied" });
+    if (sponsorPaymentWallet) {
+      await copyToClipboard(sponsorPaymentWallet);
+      toast({ title: "Sponsor payment wallet copied" });
     }
   };
 
@@ -176,7 +181,7 @@ export default function Sponsor() {
           </div>
           <div className="flex-1">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-violet-200 via-cyan-200 to-violet-100 bg-clip-text text-transparent">
-              Sponsor Network
+              Sponsor
             </h1>
             <p className="text-muted-foreground mt-2 max-w-xl">
               Grow your team with a short ref link. One-time {fee} USDT fee — lifetime access after approval.
@@ -319,7 +324,7 @@ export default function Sponsor() {
                     </p>
                     <div className="flex items-center gap-2 flex-wrap">
                       <code className="text-xs bg-black/50 px-3 py-2 rounded-lg border border-white/10 break-all font-mono">
-                        {liveSettings?.usdt_wallet_address || "Loading wallet..."}
+                        {sponsorPaymentWallet || "Loading wallet..."}
                       </code>
                       <Button type="button" size="sm" variant="outline" onClick={handleCopyWallet} className="border-violet-500/30">
                         <Copy className="h-3 w-3 mr-1" /> Copy

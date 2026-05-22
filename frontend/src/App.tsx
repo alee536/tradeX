@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 // Pages
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import ForgotPassword from "@/pages/forgot-password";
 import Home from "@/pages/home";
 import Dashboard from "@/pages/dashboard";
 import Purchase from "@/pages/purchase";
@@ -72,6 +73,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/login" component={Login} />
+      <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/register" component={Register} />
       <Route path="/ref/:slug" component={SponsorRefRedirect} />
 

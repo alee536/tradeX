@@ -55,6 +55,41 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 
+class RegisterVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
+
+    def validate_otp(self, value):
+        code = (value or '').strip()
+        if not code.isdigit() or len(code) != 6:
+            raise serializers.ValidationError('Enter the 6-digit code from your email.')
+        return code
+
+
+class RegisterResendSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetResendSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(min_length=6, max_length=6)
+    password = serializers.CharField(min_length=8, write_only=True)
+
+    def validate_otp(self, value):
+        code = (value or '').strip()
+        if not code.isdigit() or len(code) != 6:
+            raise serializers.ValidationError('Enter the 6-digit code from your email.')
+        return code
+
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()

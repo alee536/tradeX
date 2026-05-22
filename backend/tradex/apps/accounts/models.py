@@ -1,5 +1,6 @@
 import string
 import random
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -132,3 +133,57 @@ class User(AbstractUser):
         indexes = [
             models.Index(fields=['sponsored_by', 'date_joined'], name='accounts_us_sponsor_f4948b_idx'),
         ]
+
+
+class SignupOtpVerification(models.Model):
+    """Pending signup until email OTP is verified."""
+
+    email = models.EmailField(db_index=True)
+    otp_hash = models.CharField(max_length=64)
+    signup_payload = models.JSONField()
+    expires_at = models.DateTimeField(db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_sent_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=['email', 'verified_at', 'expires_at'],
+                name='accounts_otp_email_active_idx',
+            ),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Signup OTP for {self.email}'
+
+
+class PasswordResetOtp(models.Model):
+    """One-time OTP for forgot-password; invalidated after use or expiry."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='password_reset_otps',
+    )
+    email = models.EmailField(db_index=True)
+    otp_hash = models.CharField(max_length=64)
+    expires_at = models.DateTimeField(db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    last_sent_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(
+                fields=['email', 'used_at', 'expires_at'],
+                name='accounts_pwd_reset_active_idx',
+            ),
+        ]
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'Password reset OTP for {self.email}'

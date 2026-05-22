@@ -34,6 +34,15 @@ def normalize_ref_slug(value):
     return (value or '').strip().upper()
 
 
+def get_sponsor_payment_wallet():
+    """Platform wallet for sponsor access fee (separate from coin purchase wallet)."""
+    return getattr(
+        settings,
+        'SPONSOR_PAYMENT_WALLET_ADDRESS',
+        '',
+    ).strip()
+
+
 def get_sponsor_access_fee():
     settings_obj = SystemSettings.get_settings()
     fee = getattr(settings_obj, 'sponsor_access_fee_usdt', None)
@@ -108,6 +117,7 @@ def serialize_access_status(user):
         'sponsor_link': build_public_sponsor_link(user),
         'sponsor_public_path': user.sponsor_public_path,
         'access_fee_usdt': float(fee),
+        'sponsor_payment_wallet': get_sponsor_payment_wallet(),
         'can_request': user_can_request_sponsor_access(user)[0],
         'pending_request': _serialize_request(pending_request) if pending_request else None,
     }
