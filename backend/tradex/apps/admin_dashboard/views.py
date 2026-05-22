@@ -252,26 +252,44 @@ def user_detail(request, user_id):
 @admin_required
 @require_http_methods(["POST"])
 def delete_user(request, user_id):
-    """Delete a user (soft delete - set is_active to False)."""
+    """Permanently delete a user; redirect back to list with a flash message."""
     user = get_object_or_404(User, id=user_id)
-    
+
     if request.user.id == user.id:
-        return JsonResponse({'error': 'Cannot delete yourself'}, status=400)
-    
-    # Instead of hard delete, deactivate the user
-    user.is_active = False
-    user.save()
-    
-    # Adjust sold_coins if user had approved purchases
-    approved_coins = sum(
-        float(p.calculated_coins) for p in user.purchases.filter(status='approved')
+        messages.error(request, 'You cannot delete your own account.')
+        return redirect('admin_dashboard:users')
+
+    if user.is_superuser:
+        messages.error(request, 'Superuser accounts cannot be deleted.')
+        return redirect('admin_dashboard:users')
+
+    username = user.username
+    email = user.email
+
+    try:
+        settings_obj = SystemSettings.get_settings()
+        approved_purchases = Purchase.objects.filter(user=user, status='approved')
+        total_coins = 0.0
+        for purchase in approved_purchases:
+            total_coins += float(
+                purchase.approved_coin_amount
+                if purchase.approved_coin_amount is not None
+                else purchase.calculated_coins
+            )
+        if total_coins > 0:
+            settings_obj.sold_coins = max(0, float(settings_obj.sold_coins or 0) - total_coins)
+            settings_obj.save(update_fields=['sold_coins'])
+
+        user.delete()
+    except Exception as exc:
+        messages.error(request, f'Could not delete user: {exc}')
+        return redirect('admin_dashboard:users')
+
+    messages.success(
+        request,
+        f'User "{username}" ({email}) has been deleted successfully.',
     )
-    if approved_coins > 0:
-        settings = SystemSettings.get_settings()
-        settings.sold_coins = max(0, (settings.sold_coins or 0) - int(approved_coins))
-        settings.save()
-    
-    return JsonResponse({'success': True, 'message': 'User deleted'})
+    return redirect('admin_dashboard:users')
 
 
 # ==================== SPONSOR VIEWS ====================
