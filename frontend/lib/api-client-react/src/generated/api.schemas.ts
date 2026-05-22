@@ -251,6 +251,20 @@ export interface UnlockedAmounts {
   breakdown?: UnlockBreakdownItem[];
 }
 
+export interface SponsorAccessRequestSummary {
+  id: number;
+  status: string;
+  payment_status: string;
+  fee_usdt: number;
+  ref_slug: string;
+  payment_txid?: string | null;
+  payment_wallet?: string | null;
+  rejection_reason?: string | null;
+  created_at?: string | null;
+  reviewed_at?: string | null;
+  activated_at?: string | null;
+}
+
 export interface SponsorStats {
   sponsor_code: string;
   sponsor_link: string;
@@ -259,6 +273,39 @@ export interface SponsorStats {
   sponsor_earnings: number;
   sponsored_purchases?: number;
   sponsored_withdrawals?: number;
+  sponsor_access_status?: string;
+  sponsor_payment_status?: string;
+  sponsor_activated_at?: string | null;
+  sponsor_ref_slug?: string | null;
+  sponsor_public_path?: string | null;
+  access_fee_usdt?: number;
+  can_request?: boolean;
+  pending_request?: SponsorAccessRequestSummary | null;
+}
+
+export interface SponsorAccessRequestInput {
+  ref_slug: string;
+  payment_txid: string;
+  payment_wallet: string;
+}
+
+export interface SponsorAccessRequestResponse {
+  message: string;
+  request: {
+    id: number;
+    ref_slug: string;
+    fee_usdt: number;
+    status: string;
+    payment_status: string;
+  };
+  access: Partial<SponsorStats>;
+}
+
+export interface PublicSponsorRefResponse {
+  ref_slug: string;
+  sponsor_code: string;
+  sponsor_username: string;
+  register_path: string;
 }
 
 export interface SponsoredUser {

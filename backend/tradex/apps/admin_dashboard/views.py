@@ -15,6 +15,12 @@ from apps.purchases.models import Purchase
 from apps.settings_app.models import SystemSettings
 from apps.withdrawals.claims import ClaimError, approve_claim, reject_claim
 from apps.withdrawals.models import PurchaseClaim, Withdrawal
+from apps.sponsor.access import (
+    SponsorAccessError,
+    approve_sponsor_access_request,
+    reject_sponsor_access_request,
+)
+from apps.sponsor.models import SponsorAccessRequest
 from apps.notifications.utils import create_notification
 from .permissions import admin_required
 
@@ -699,3 +705,58 @@ def reject_claim_view(request, claim_id):
         f'Stage {claim.stage} claim rejected for {claim.user.username}.'
     )
     return redirect('admin_dashboard:claims')
+
+
+# ==================== SPONSOR ACCESS REQUEST VIEWS ====================
+
+
+@admin_required
+def sponsor_access_list(request):
+    """List sponsor link access requests (5 USDT one-time fee)."""
+    base_qs = SponsorAccessRequest.objects.select_related('user')
+    qs = base_qs.order_by('-created_at')
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    context = {
+        'requests': qs[:200],
+        'status_filter': status_filter,
+        'statuses': SponsorAccessRequest.STATUS_CHOICES,
+        'stats_total': base_qs.count(),
+        'stats_pending': base_qs.filter(
+            status=SponsorAccessRequest.STATUS_PENDING,
+        ).count(),
+        'stats_approved': base_qs.filter(
+            status=SponsorAccessRequest.STATUS_APPROVED,
+        ).count(),
+        'stats_rejected': base_qs.filter(
+            status=SponsorAccessRequest.STATUS_REJECTED,
+        ).count(),
+    }
+    return render(request, 'admin/sponsor_access.html', context)
+
+
+@admin_required
+@require_http_methods(['POST'])
+def approve_sponsor_access(request, request_id):
+    req = get_object_or_404(SponsorAccessRequest, id=request_id)
+    try:
+        approve_sponsor_access_request(req)
+        messages.success(request, f'Sponsor link {req.ref_slug} approved.')
+    except SponsorAccessError as exc:
+        messages.error(request, str(exc))
+    return redirect('admin_dashboard:sponsor_access')
+
+
+@admin_required
+@require_http_methods(['POST'])
+def reject_sponsor_access(request, request_id):
+    req = get_object_or_404(SponsorAccessRequest, id=request_id)
+    reason = (request.POST.get('reason') or '').strip()
+    try:
+        reject_sponsor_access_request(req, reason)
+        messages.success(request, 'Sponsor access request rejected.')
+    except SponsorAccessError as exc:
+        messages.error(request, str(exc))
+    return redirect('admin_dashboard:sponsor_access')

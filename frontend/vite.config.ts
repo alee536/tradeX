@@ -31,6 +31,11 @@ export default defineConfig({
     alias: {
       "@": path.resolve(import.meta.dirname, "./src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
+      // Always use workspace source — pnpm `file:` can leave a stale copy in node_modules
+      "@workspace/api-client-react": path.resolve(
+        import.meta.dirname,
+        "./lib/api-client-react/src/index.ts",
+      ),
     },
     dedupe: ["react", "react-dom"],
   },

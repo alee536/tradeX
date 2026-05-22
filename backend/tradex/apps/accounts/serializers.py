@@ -31,13 +31,19 @@ class RegisterSerializer(serializers.Serializer):
         return value
 
     def create(self, validated_data):
+        from apps.sponsor.access import resolve_active_sponsor_by_ref
+
         sponsor_code = validated_data.pop('sponsor_code', None)
         sponsored_by = None
         if sponsor_code:
-            try:
-                sponsored_by = User.objects.get(sponsor_code=sponsor_code)
-            except User.DoesNotExist:
-                pass
+            code = (sponsor_code or '').strip()
+            # Only active, admin-approved sponsors count (/ref/SLUG or legacy code).
+            sponsored_by = resolve_active_sponsor_by_ref(code)
+            if sponsored_by is None:
+                sponsored_by = User.objects.filter(
+                    sponsor_code=code,
+                    sponsor_access_status=User.SPONSOR_ACCESS_ACTIVE,
+                ).first()
 
         user = User.objects.create_user(
             username=validated_data['username'],

@@ -58,6 +58,7 @@ class PublicSettingsView(APIView):
             'min_purchase': settings.min_purchase,
             'max_purchase': settings.max_purchase,
             'usdt_wallet_address': settings.usdt_wallet_address,
+            'sponsor_access_fee_usdt': float(settings.sponsor_access_fee_usdt),
         }
         payload.update(_profit_public_fields(settings))
         return Response(payload)

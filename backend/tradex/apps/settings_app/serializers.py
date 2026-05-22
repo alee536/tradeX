@@ -12,7 +12,7 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
             'stage2_hours', 'stage2_percent',
             'stage3_hours', 'stage3_percent',
             'min_purchase', 'max_purchase',
-            'usdt_wallet_address', 'sponsor_percentage',
+            'usdt_wallet_address', 'sponsor_percentage', 'sponsor_access_fee_usdt',
             'profit_enabled', 'profit_percentage', 'profit_cycle_hours',
             'total_coin_supply', 'sold_coins',
             'remaining_coins',

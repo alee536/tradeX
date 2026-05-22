@@ -16,6 +16,7 @@ import Purchase from "@/pages/purchase";
 import Withdraw from "@/pages/withdraw";
 import Transactions from "@/pages/transactions";
 import Sponsor from "@/pages/sponsor";
+import SponsorRefRedirect from "@/pages/sponsor-ref";
 import Profile from "@/pages/profile";
 import Settings from "@/pages/settings";
 
@@ -72,6 +73,7 @@ function Router() {
     <Switch>
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/ref/:slug" component={SponsorRefRedirect} />
 
       {/* Protected User Routes */}
       <Route path="/purchase">
