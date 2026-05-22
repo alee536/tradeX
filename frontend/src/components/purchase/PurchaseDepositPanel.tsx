@@ -2,7 +2,11 @@ import { useState } from "react";
 import { Copy, CheckCircle2, Wallet, QrCode, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { copyToClipboard } from "@/lib/utils";
-import { PURCHASE_DEPOSIT_QR_SRC, PURCHASE_PAYMENT_WALLET } from "./purchase-wallet";
+import {
+  purchaseDepositQrFallback,
+  purchaseDepositQrUrl,
+  PURCHASE_PAYMENT_WALLET,
+} from "./purchase-wallet";
 
 type PurchaseDepositPanelProps = {
   walletAddress: string;
@@ -17,6 +21,7 @@ export function PurchaseDepositPanel({
 }: PurchaseDepositPanelProps) {
   const [copied, setCopied] = useState(false);
   const address = walletAddress || PURCHASE_PAYMENT_WALLET;
+  const [qrSrc, setQrSrc] = useState(() => purchaseDepositQrUrl());
 
   const handleCopy = async () => {
     await copyToClipboard(address);
@@ -47,11 +52,15 @@ export function PurchaseDepositPanel({
         <div className="flex flex-col items-center gap-2 mx-auto sm:mx-0">
           <div className="rounded-xl bg-white p-2 shadow-lg max-w-[200px]">
             <img
-              src={PURCHASE_DEPOSIT_QR_SRC}
+              src={qrSrc}
               alt="USDT BEP20 deposit QR code"
               width={180}
               height={180}
               className="rounded-lg w-full h-auto object-contain"
+              onError={() => {
+                const fallback = purchaseDepositQrFallback(address);
+                if (qrSrc !== fallback) setQrSrc(fallback);
+              }}
             />
           </div>
           <span className="text-xs text-muted-foreground flex items-center gap-1">
