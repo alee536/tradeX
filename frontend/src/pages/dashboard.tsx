@@ -116,7 +116,7 @@ function ProfitRewardCard({
             <span className="text-green-400 font-bold text-lg">{formatCurrency(total)}</span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Each purchase total includes +{pct}% profit. Claim on Withdraw: {profit.stage1_hours ?? 72}h → 50%, then +{profit.stage2_hours ?? 24}h → 25%, then +{profit.stage3_hours ?? 24}h → 25% (no admin approval).
+            Totals appear on your dashboard as soon as a purchase is approved. Claim on Withdraw later: {profit.stage1_hours ?? 72}h → 50%, then +{profit.stage2_hours ?? 24}h → 25%, then +{profit.stage3_hours ?? 24}h → 25%.
           </p>
         </div>
 
@@ -248,7 +248,7 @@ export default function Dashboard() {
         <Card className="glass-panel border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Coins
+              Total Value (Coins)
             </CardTitle>
             <Wallet className="h-4 w-4 text-primary" />
           </CardHeader>
@@ -311,7 +311,9 @@ export default function Dashboard() {
                 <div className="text-2xl font-bold text-white">
                   <AnimatedCounter value={summary?.pending_withdrawal || 0} />
                 </div>
-                <div className="text-xs text-muted-foreground">Assigned but still locked by vesting</div>
+                <div className="text-xs text-muted-foreground">
+                  Total value not yet in claim wallet (claim stages on Withdraw)
+                </div>
               </div>
             )}
           </CardContent>

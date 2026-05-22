@@ -10,16 +10,17 @@ class ProfitClaimError(Exception):
     """Raised when a profit claim cannot be processed."""
 
 
-def _assigned_purchases_qs(user):
+def _approved_purchases_qs(user):
+    """All approved purchases — dashboard shows deposit + profit% immediately."""
     from apps.purchases.models import Purchase
 
-    return Purchase.objects.filter(
-        user=user,
-        status='approved',
-        is_coins_assigned=True,
-    ).only(
-        'amount', 'approved_at', 'coins_assigned_at',
-        'approved_coin_amount', 'coin_rate_at_approval',
+    return Purchase.objects.filter(user=user, status='approved').only(
+        'amount',
+        'approved_at',
+        'coins_assigned_at',
+        'is_coins_assigned',
+        'approved_coin_amount',
+        'coin_rate_at_approval',
     )
 
 
@@ -53,10 +54,39 @@ def _staged_claim_totals(user):
     }
 
 
+def sum_profit_inclusive_totals(user, settings_obj):
+    """Aggregate base / profit / total (coins & USDT) for all approved purchases."""
+    base_usdt = Decimal('0')
+    estimated_profit = Decimal('0')
+    total_after = Decimal('0')
+    total_coins = Decimal('0')
+    purchase_count = 0
+    pending_assignment = 0
+
+    for purchase in _approved_purchases_qs(user):
+        purchase_count += 1
+        if not purchase.is_coins_assigned:
+            pending_assignment += 1
+        totals = purchase_totals_with_profit(purchase, settings_obj)
+        base_usdt += totals['base_usdt']
+        estimated_profit += totals['profit_usdt']
+        total_after += totals['total_usdt']
+        total_coins += totals['total_coins']
+
+    return {
+        'purchase_count': purchase_count,
+        'pending_assignment_count': pending_assignment,
+        'base_usdt': base_usdt.quantize(Decimal('0.00000001')),
+        'estimated_profit_usdt': estimated_profit.quantize(Decimal('0.00000001')),
+        'total_after_profit_usdt': total_after.quantize(Decimal('0.00000001')),
+        'total_entitled_coins': total_coins.quantize(Decimal('0.00000001')),
+    }
+
+
 def compute_user_profit_summary(user, settings_obj):
     """
-    Display: deposit + admin profit% = total claimable via 50/25/25 staged claims.
-    Payouts happen on Withdraw (auto-approved claims), not a separate profit button.
+    Display: deposit + admin profit% on dashboard as soon as purchase is approved.
+    Staged claims on Withdraw still unlock later (50/25/25).
     """
     try:
         if not settings_obj.profit_enabled:
@@ -65,29 +95,19 @@ def compute_user_profit_summary(user, settings_obj):
         return {'enabled': False}
 
     pct = profit_percentage_value(settings_obj)
-    purchases = list(_assigned_purchases_qs(user))
-    purchase_count = len(purchases)
-    base_usdt = _sum_base_usdt(purchases)
-
-    estimated_profit = Decimal('0')
-    total_after = Decimal('0')
-    for purchase in purchases:
-        totals = purchase_totals_with_profit(purchase, settings_obj)
-        estimated_profit += totals['profit_usdt']
-        total_after += totals['total_usdt']
-
-    estimated_profit = estimated_profit.quantize(Decimal('0.00000001'))
-    total_after = total_after.quantize(Decimal('0.00000001'))
+    aggregates = sum_profit_inclusive_totals(user, settings_obj)
     staged = _staged_claim_totals(user)
 
     return {
         'enabled': True,
         'profit_percentage': float(pct),
         'profit_cycle_hours': int(settings_obj.stage1_hours or 72),
-        'purchase_count': purchase_count,
-        'base_usdt': float(base_usdt),
-        'estimated_profit_usdt': float(estimated_profit),
-        'total_after_profit_usdt': float(total_after),
+        'purchase_count': aggregates['purchase_count'],
+        'pending_assignment_count': aggregates['pending_assignment_count'],
+        'base_usdt': float(aggregates['base_usdt']),
+        'estimated_profit_usdt': float(aggregates['estimated_profit_usdt']),
+        'total_after_profit_usdt': float(aggregates['total_after_profit_usdt']),
+        'total_entitled_coins': float(aggregates['total_entitled_coins']),
         'claimable_usdt': 0.0,
         'claimable_coins': 0.0,
         'can_claim': False,

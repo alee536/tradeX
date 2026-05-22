@@ -40,3 +40,24 @@ class ProfitSummaryTests(TestCase):
     def test_separate_profit_claim_disabled(self):
         with self.assertRaises(ProfitClaimError):
             execute_profit_claim(self.user)
+
+    def test_summary_includes_approved_before_assignment(self):
+        from django.utils import timezone
+
+        Purchase.objects.create(
+            user=self.user,
+            transaction_id='TX24XAPPROVE',
+            amount=Decimal('50'),
+            status='approved',
+            approved_at=timezone.now(),
+            is_coins_assigned=False,
+            approved_coin_amount=Decimal('50'),
+            coin_rate_at_approval=Decimal('1'),
+        )
+        summary = compute_user_profit_summary(self.user, self.settings)
+        self.assertEqual(summary['purchase_count'], 2)
+        self.assertEqual(summary['pending_assignment_count'], 1)
+        self.assertEqual(summary['base_usdt'], 150.0)
+        self.assertEqual(summary['estimated_profit_usdt'], 15.0)
+        self.assertEqual(summary['total_after_profit_usdt'], 165.0)
+        self.assertEqual(summary['total_entitled_coins'], 165.0)
