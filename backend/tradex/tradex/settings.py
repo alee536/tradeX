@@ -234,3 +234,9 @@ SPONSOR_PAYMENT_WALLET_ADDRESS = os.environ.get(
     'SPONSOR_PAYMENT_WALLET_ADDRESS',
     '0xd7fd1e7d15f3dd6e9f3584a8b9e08f2feddfb7f8',
 )
+
+# Coin purchase deposit wallet — USDT BEP20 only
+USDT_PURCHASE_WALLET_ADDRESS = os.environ.get(
+    'USDT_PURCHASE_WALLET_ADDRESS',
+    '0xffaFa174689476EdEfA9017Bf302F3E5095D9f48',
+)
