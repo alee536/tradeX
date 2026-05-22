@@ -2,7 +2,7 @@
 ============== Sponsor link access service ==============
 
 Business rules:
-    1. One-time fee (default 5 USDT, configurable in SystemSettings).
+    1. One-time fee: fixed 5 USDT sponsor access payment.
     2. User submits request from Sponsor tab with payment proof + desired ref slug.
     3. Admin approves or rejects.
     4. On approval, sponsor link is active for lifetime (user.sponsor_access_status=active).
@@ -18,8 +18,6 @@ from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.notifications.utils import create_notification
-from apps.settings_app.models import SystemSettings
-
 from .models import SponsorAccessRequest
 
 
@@ -28,6 +26,9 @@ class SponsorAccessError(Exception):
 
 
 REF_SLUG_RE = re.compile(r'^[A-Za-z0-9]{4,20}$')
+
+# Fixed sponsor access fee (USDT, BEP20)
+SPONSOR_ACCESS_FEE_USDT = Decimal('5')
 
 
 def normalize_ref_slug(value):
@@ -44,11 +45,8 @@ def get_sponsor_payment_wallet():
 
 
 def get_sponsor_access_fee():
-    settings_obj = SystemSettings.get_settings()
-    fee = getattr(settings_obj, 'sponsor_access_fee_usdt', None)
-    if fee is None:
-        return Decimal('5')
-    return Decimal(str(fee))
+    """Sponsor link access is a fixed 5 USDT one-time payment."""
+    return SPONSOR_ACCESS_FEE_USDT
 
 
 def user_can_request_sponsor_access(user):

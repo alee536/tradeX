@@ -4,6 +4,8 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.sponsor.access import get_sponsor_access_fee
+
 from .models import ProfitClaim, SystemSettings
 from .profit import ProfitClaimError, compute_user_profit_summary, execute_profit_claim
 from .serializers import ProfitClaimSerializer, SystemSettingsSerializer
@@ -60,7 +62,7 @@ class PublicSettingsView(APIView):
             'max_purchase': settings.max_purchase,
             'usdt_wallet_address': settings.usdt_wallet_address,
             'sponsor_payment_wallet_address': django_settings.SPONSOR_PAYMENT_WALLET_ADDRESS,
-            'sponsor_access_fee_usdt': float(settings.sponsor_access_fee_usdt),
+            'sponsor_access_fee_usdt': float(get_sponsor_access_fee()),
         }
         payload.update(_profit_public_fields(settings))
         return Response(payload)
