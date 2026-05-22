@@ -113,8 +113,16 @@ def _send_signup_otp_email(email, otp_code):
             flow_label='Signup OTP',
         )
     except Exception as exc:
+        from django.conf import settings as django_settings
+
+        detail = 'Unable to send verification email. Please try again later.'
+        if django_settings.DEBUG:
+            detail = (
+                f'{detail} (dev: check EMAIL_HOST_PASSWORD is a 16-char Gmail App Password '
+                f'for {django_settings.EMAIL_HOST_USER})'
+            )
         raise SignupOtpError(
-            'Unable to send verification email. Please try again later.',
+            detail,
             code='email_send_failed',
             http_status=503,
         ) from exc

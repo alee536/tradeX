@@ -11,6 +11,8 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
+    # Loads backend/.env (gitignored). After changing EMAIL_* vars, recreate:
+    #   docker compose up -d --force-recreate backend
     env_file:
       - path: ./backend/.env
         required: false
