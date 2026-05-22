@@ -18,6 +18,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatCrypto, formatCurrency, copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { SponsorAccessHero } from "@/components/sponsor/SponsorAccessHero";
+import { SponsorPaymentPanel } from "@/components/sponsor/SponsorPaymentPanel";
+import {
+  SPONSOR_ACCESS_FEE_USDT,
+  SPONSOR_PAYMENT_WALLET_FALLBACK,
+} from "@/components/sponsor/sponsor-fee";
 import { SponsorStatCard } from "@/components/sponsor/SponsorStatCard";
 import {
   Loader2,
@@ -32,7 +37,6 @@ import {
   AlertCircle,
   Share2,
   Network,
-  Wallet,
   Send,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -120,11 +124,11 @@ export default function Sponsor() {
   const isPending =
     stats?.sponsor_access_status === "pending" || !!stats?.pending_request;
   const canRequest = stats?.can_request ?? false;
-  const fee = stats?.access_fee_usdt ?? liveSettings?.sponsor_access_fee_usdt ?? 5;
+  const fee = SPONSOR_ACCESS_FEE_USDT;
   const sponsorPaymentWallet =
     stats?.sponsor_payment_wallet
     ?? liveSettings?.sponsor_payment_wallet_address
-    ?? "";
+    ?? SPONSOR_PAYMENT_WALLET_FALLBACK;
   const publicLink = stats?.sponsor_link;
   const statusBadge = accessStatusLabel(stats?.sponsor_access_status);
 
@@ -160,13 +164,6 @@ export default function Sponsor() {
         payment_wallet: values.payment_wallet,
       },
     });
-  };
-
-  const handleCopyWallet = async () => {
-    if (sponsorPaymentWallet) {
-      await copyToClipboard(sponsorPaymentWallet);
-      toast({ title: "Sponsor payment wallet copied" });
-    }
   };
 
   return (
@@ -273,10 +270,16 @@ export default function Sponsor() {
                       Copy Link
                     </Button>
                   </div>
+                  <div className="rounded-lg border border-green-500/25 bg-green-500/5 p-3 text-sm">
+                    <p className="text-green-200 font-medium">Your sponsor code (allocated after admin approval)</p>
+                    <p className="mt-1 font-mono text-lg text-white tracking-wide">
+                      {stats?.sponsor_ref_slug}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Share: <span className="text-cyan-300/90">{publicLink}</span>
+                    </p>
+                  </div>
                   <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                    <span>
-                      Code: <strong className="text-white font-mono">{stats?.sponsor_ref_slug}</strong>
-                    </span>
                     {stats?.sponsor_activated_at && (
                       <span>Activated: {new Date(stats.sponsor_activated_at).toLocaleDateString()}</span>
                     )}
@@ -300,37 +303,26 @@ export default function Sponsor() {
                     <Clock className="h-5 w-5 text-amber-400 animate-pulse" />
                   </div>
                   <div>
-                    <p className="font-medium text-amber-200">Request pending admin review</p>
+                    <p className="font-medium text-amber-200">Waiting for admin approval</p>
                     {stats?.pending_request && (
                       <p className="text-sm text-muted-foreground mt-1">
-                        Code <code className="text-violet-300">{stats.pending_request.ref_slug}</code> ·{" "}
-                        {stats.pending_request.fee_usdt} USDT
+                        Requested code{" "}
+                        <code className="text-violet-300 font-mono">{stats.pending_request.ref_slug}</code> ·{" "}
+                        {SPONSOR_ACCESS_FEE_USDT} USDT paid
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground mt-2">
-                      You cannot submit another request until this is approved or rejected.
+                      After approval, your sponsor code and ref link (s24tx.com/ref/YOURCODE) will be
+                      activated for life. You cannot submit another request until this is approved or rejected.
                     </p>
                   </div>
                 </div>
               ) : canRequest ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                  <div className="rounded-xl border border-violet-500/20 bg-gradient-to-br from-violet-500/10 to-black/20 p-4 text-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Wallet className="h-4 w-4 text-violet-400" />
-                      <p className="font-medium text-white">One-time fee: {fee} USDT (BEP20)</p>
-                    </div>
-                    <p className="text-muted-foreground mb-3">
-                      Send exactly {fee} USDT to the platform wallet, then submit proof and your desired code.
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <code className="text-xs bg-black/50 px-3 py-2 rounded-lg border border-white/10 break-all font-mono">
-                        {sponsorPaymentWallet || "Loading wallet..."}
-                      </code>
-                      <Button type="button" size="sm" variant="outline" onClick={handleCopyWallet} className="border-violet-500/30">
-                        <Copy className="h-3 w-3 mr-1" /> Copy
-                      </Button>
-                    </div>
-                  </div>
+                  <SponsorPaymentPanel
+                    walletAddress={sponsorPaymentWallet}
+                    onCopied={() => toast({ title: "Sponsor payment wallet copied" })}
+                  />
 
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmitRequest)} className="space-y-4 max-w-lg">
@@ -390,7 +382,7 @@ export default function Sponsor() {
                         ) : (
                           <>
                             <Send className="h-4 w-4 mr-2" />
-                            Request sponsor access ({fee} USDT)
+                            Request sponsor access ({SPONSOR_ACCESS_FEE_USDT} USDT)
                           </>
                         )}
                       </Button>
