@@ -156,11 +156,12 @@ export default function Withdraw() {
                </div>
                <div className="p-4 bg-black/30 rounded-lg border border-white/5">
                   <div className="text-sm text-muted-foreground flex items-center gap-1 mb-1">
-                     <Lock className="w-3 h-3" /> Locked
+                     <Lock className="w-3 h-3" /> Unclaimed
                   </div>
                   <div className="text-xl font-bold text-white">
                      {loadingUnlock ? <Loader2 className="h-4 w-4 animate-spin" /> : formatCrypto(lockedAmount)}
                   </div>
+                  <div className="text-[11px] text-muted-foreground mt-1">Still in claim schedule</div>
                </div>
             </div>
 

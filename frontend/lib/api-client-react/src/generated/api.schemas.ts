@@ -52,6 +52,7 @@ export interface DashboardProfitSummary {
   enabled: boolean;
   profit_percentage?: number;
   profit_cycle_hours?: number;
+  purchase_count?: number;
   base_usdt?: number;
   estimated_profit_usdt?: number;
   total_after_profit_usdt?: number;

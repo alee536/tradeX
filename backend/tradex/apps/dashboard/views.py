@@ -16,18 +16,17 @@ def dashboard_summary(request):
 
     sync_user_withdrawals(user)
 
+    from apps.withdrawals.views import get_available_balance
+
     # Only consider purchases for which coins have actually been assigned
     approved_assigned_purchases = Purchase.objects.filter(user=user, status='approved', is_coins_assigned=True)
     total_purchased = sum(float(p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins) for p in approved_assigned_purchases)
 
-    # Only unlocked amounts from assigned purchases are available for withdrawal
-    total_unlocked = sum(p.unlocked_amount for p in approved_assigned_purchases)
-    total_withdrawn = sum(w.amount for w in Withdrawal.objects.filter(user=user, status__in=['pending', 'approved', 'completed']))
-    # Coins that are assigned but not yet unlocked (shown on dashboard as pending/locked coins)
-    locked_coins = max(0, float(total_purchased) - float(total_unlocked))
-
     profit_bonus = get_profit_bonus_coins(user)
-    available_withdrawal = max(0, float(total_unlocked) + profit_bonus - float(total_withdrawn))
+    available_withdrawal, wallet_from_claims, _total_assigned = get_available_balance(user)
+    total_withdrawn = sum(w.amount for w in Withdrawal.objects.filter(user=user, status__in=['pending', 'approved', 'completed']))
+    # Assigned coins not yet claimed via staged claims
+    locked_coins = max(0, float(total_purchased) - float(wallet_from_claims))
     settings_obj = SystemSettings.get_settings()
 
     unread_notifications = Notification.objects.filter(user=user, is_read=False).count()

@@ -86,10 +86,7 @@ export function getPipelineSteps(schedule: PurchaseClaimSchedule) {
     active = "complete";
   } else if (timerStage) {
     active = "timer";
-  } else if (
-    actionable ||
-    schedule.stages.some((s: PurchaseClaimStage) => s.state === "pending")
-  ) {
+  } else if (actionable) {
     active = "claim";
   } else {
     active = "timer";

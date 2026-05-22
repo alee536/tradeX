@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useGetProfile, useUpdateProfile } from "@workspace/api-client-react";
+import { useGetProfile, useUpdateProfile, useGetDashboardSummary } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { getGetProfileQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -10,7 +10,8 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, User as UserIcon, Mail, Hash, ShieldCheck } from "lucide-react";
+import { Loader2, User as UserIcon, Mail, Hash, ShieldCheck, TrendingUp, Percent } from "lucide-react";
+import { formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 const profileSchema = z.object({
@@ -24,7 +25,9 @@ export default function Profile() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: profile, isLoading } = useGetProfile();
+  const { data: summary } = useGetDashboardSummary();
   const updateProfile = useUpdateProfile();
+  const profit = summary?.profit;
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -93,6 +96,48 @@ export default function Profile() {
               </div>
            </CardContent>
         </Card>
+
+        {profit?.enabled && (
+          <Card className="glass-panel border-l-4 border-l-amber-500">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <TrendingUp className="h-4 w-4 text-amber-400" />
+                Profit on your profile
+              </CardTitle>
+              <CardDescription>
+                Payment value includes admin profit rate on your approved deposits
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Percent className="h-4 w-4 text-amber-400" />
+                <span className="text-lg font-bold text-amber-300">{profit.profit_percentage ?? 0}%</span>
+                <span className="text-sm text-muted-foreground">active rate</span>
+              </div>
+              <div className="grid sm:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg bg-black/30 border border-white/10 p-3">
+                  <p className="text-xs text-muted-foreground">Your deposits (USDT)</p>
+                  <p className="font-bold text-white mt-1">{formatCurrency(profit.base_usdt ?? 0)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">
+                    {profit.purchase_count ?? 0} purchase(s)
+                  </p>
+                </div>
+                <div className="rounded-lg bg-black/30 border border-amber-500/20 p-3">
+                  <p className="text-xs text-muted-foreground">+{profit.profit_percentage ?? 0}% added</p>
+                  <p className="font-bold text-amber-300 mt-1">+{formatCurrency(profit.estimated_profit_usdt ?? 0)}</p>
+                </div>
+                <div className="rounded-lg bg-black/30 border border-green-500/20 p-3">
+                  <p className="text-xs text-muted-foreground">Total with profit</p>
+                  <p className="font-bold text-green-400 mt-1">{formatCurrency(profit.total_after_profit_usdt ?? 0)}</p>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                See full reward timer and claim on the{" "}
+                <a href="/user/dashboard" className="text-amber-300 hover:underline">Dashboard</a>.
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="glass-panel">
           <CardHeader>
