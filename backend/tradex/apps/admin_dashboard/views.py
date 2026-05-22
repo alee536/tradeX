@@ -11,6 +11,7 @@ from decimal import Decimal, InvalidOperation
 import json
 
 from apps.accounts.models import User
+from apps.purchases.admin_queries import build_admin_purchase_rows, filter_admin_purchases
 from apps.purchases.models import Purchase
 from apps.settings_app.models import SystemSettings
 from apps.withdrawals.claims import ClaimError, approve_claim, reject_claim
@@ -83,31 +84,21 @@ def dashboard(request):
 # ==================== PURCHASES VIEWS ====================
 @admin_required
 def purchases_list(request):
-    """Admin purchases list."""
+    """Admin purchases list with TXID search and payment detail columns."""
     status_filter = request.GET.get('status', '')
     search = request.GET.get('search', '')
-    
-    purchases = Purchase.objects.select_related('user').all()
-    
-    if status_filter:
-        purchases = purchases.filter(status=status_filter)
-    
-    if search:
-        purchases = purchases.filter(
-            Q(user__username__icontains=search) |
-            Q(user__email__icontains=search) |
-            Q(transaction_id__icontains=search)
-        )
-    
-    purchases = purchases.order_by('-created_at')
-    
+
+    purchases = filter_admin_purchases(status_filter=status_filter, search=search)
+    settings = SystemSettings.get_settings()
+    purchase_rows = build_admin_purchase_rows(purchases, settings)
+
     context = {
-        'purchases': purchases,
+        'purchase_rows': purchase_rows,
         'status_filter': status_filter,
         'search': search,
         'statuses': Purchase.STATUS_CHOICES,
     }
-    
+
     return render(request, 'admin/purchases.html', context)
 
 
