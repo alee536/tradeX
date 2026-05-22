@@ -3,6 +3,7 @@ Shared helpers for sending OTP verification emails (signup, password reset).
 """
 
 import logging
+import smtplib
 
 from django.conf import settings
 from django.core.mail import send_mail
@@ -48,6 +49,16 @@ def send_otp_email(recipient, otp_code, subject, body, flow_label='OTP'):
             [recipient],
             fail_silently=False,
         )
+    except smtplib.SMTPAuthenticationError:
+        password = (getattr(settings, 'EMAIL_HOST_PASSWORD', '') or '')
+        if password in ('', 'YOUR_GMAIL_APP_PASSWORD_HERE', 'your-gmail-app-password-here'):
+            logger.error(
+                '%s: EMAIL_HOST_PASSWORD is missing or still a placeholder in backend/.env. '
+                'Set a 16-character Gmail App Password and run: docker compose up -d --force-recreate backend',
+                flow_label,
+            )
+        logger.exception('%s email delivery failed for %s', flow_label, recipient)
+        raise
     except Exception:
         logger.exception('%s email delivery failed for %s', flow_label, recipient)
         raise
