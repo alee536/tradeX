@@ -192,3 +192,45 @@ if not DEBUG:
 _csrf_trusted = os.environ.get('CSRF_TRUSTED_ORIGINS', '').strip()
 if _csrf_trusted:
     CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted.split(',') if o.strip()]
+
+# ---------------------------------------------------------------------------
+# Email (SMTP from environment — never hardcode credentials)
+# ---------------------------------------------------------------------------
+EMAIL_BACKEND = os.environ.get(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend',
+)
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True') == 'True'
+EMAIL_USE_SSL = os.environ.get('EMAIL_USE_SSL', 'False') == 'True'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get(
+    'DEFAULT_FROM_EMAIL',
+    EMAIL_HOST_USER or '24tradexinfo@gmail.com',
+)
+
+# Signup email OTP
+SIGNUP_OTP_EXPIRY_MINUTES = int(os.environ.get('SIGNUP_OTP_EXPIRY_MINUTES', '10'))
+SIGNUP_OTP_RESEND_COOLDOWN_SECONDS = int(
+    os.environ.get('SIGNUP_OTP_RESEND_COOLDOWN_SECONDS', '60')
+)
+SIGNUP_OTP_MAX_ATTEMPTS = int(os.environ.get('SIGNUP_OTP_MAX_ATTEMPTS', '5'))
+
+# Forgot password OTP
+PASSWORD_RESET_OTP_EXPIRY_MINUTES = int(
+    os.environ.get('PASSWORD_RESET_OTP_EXPIRY_MINUTES', '15')
+)
+PASSWORD_RESET_OTP_RESEND_COOLDOWN_SECONDS = int(
+    os.environ.get('PASSWORD_RESET_OTP_RESEND_COOLDOWN_SECONDS', '60')
+)
+PASSWORD_RESET_OTP_MAX_ATTEMPTS = int(
+    os.environ.get('PASSWORD_RESET_OTP_MAX_ATTEMPTS', '5')
+)
+
+# Sponsor access one-time fee — USDT deposit wallet (BEP20)
+SPONSOR_PAYMENT_WALLET_ADDRESS = os.environ.get(
+    'SPONSOR_PAYMENT_WALLET_ADDRESS',
+    '0xd7fd1e7d15f3dd6e9f3584a8b9e08f2feddfb7f8',
+)

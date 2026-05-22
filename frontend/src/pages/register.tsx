@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
-import { useRegister } from "@workspace/api-client-react";
+import {
+  requestSignupOtp,
+  verifySignupOtp,
+  resendSignupOtp,
+  getApiErrorMessage,
+} from "@/lib/auth-signup";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -11,12 +16,13 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Eye, EyeOff, TrendingUp, Shield, Coins, Users, Check } from "lucide-react";
 import { CryptoBackground } from "@/components/ui/crypto-background";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 const registerSchema = z.object({
   username: z.string().min(1, "Display name is required"),
   full_name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
   confirm_password: z.string().min(1, "Please confirm your password"),
   sponsor_code: z.string().optional(),
 }).refine((d) => d.password === d.confirm_password, {
@@ -59,13 +65,19 @@ function getPasswordStrength(password: string): StrengthLevel {
 const inputCls = "h-11 text-white placeholder:text-gray-600 border-0 focus-visible:ring-1 focus-visible:ring-blue-500/50";
 const inputStyle = { background: "rgba(255,255,255,0.05)", borderRadius: "8px" };
 
+type RegisterStep = "details" | "verify";
+
 export default function Register() {
   const [, setLocation] = useLocation();
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [step, setStep] = useState<RegisterStep>("details");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [otp, setOtp] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const { login, isAuthenticated } = useAuth();
   const { toast } = useToast();
-  const registerMutation = useRegister();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -96,24 +108,85 @@ export default function Register() {
     if (sp) form.setValue("sponsor_code", sp);
   }, [form]);
 
-  const onSubmit = (data: RegisterFormValues) => {
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
+
+  const onSubmitDetails = async (data: RegisterFormValues) => {
     const { confirm_password, ...rest } = data;
     const submitData = { ...rest, sponsor_code: rest.sponsor_code || undefined };
-    registerMutation.mutate({ data: submitData }, {
-      onSuccess: (res) => {
-        console.log('register success response:', res);
-        login(res);
-        toast({ title: "Welcome to 24TRADEX!", description: "Your account has been created." });
-        setTimeout(() => setLocation("/user/dashboard"), 50);
-      },
-      onError: (err: any) => {
-        toast({
-          title: "Registration failed",
-          description: err?.message || "Something went wrong",
-          variant: "destructive",
-        });
-      }
-    });
+    setIsSubmitting(true);
+    try {
+      const res = await requestSignupOtp(submitData);
+      setPendingEmail(res.email);
+      setResendCooldown(res.resend_cooldown_seconds);
+      setOtp("");
+      setStep("verify");
+      toast({
+        title: "Check your email",
+        description: `We sent a 6-digit code to ${res.email}. It expires in ${res.expires_in_minutes} minutes.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not send code",
+        description: getApiErrorMessage(err, "Please try again."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onVerifyOtp = async () => {
+    if (otp.length !== 6) {
+      toast({
+        title: "Enter verification code",
+        description: "Please enter the 6-digit code from your email.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const res = await verifySignupOtp(pendingEmail, otp);
+      login(res);
+      toast({ title: "Welcome to 24TRADEX!", description: "Your account has been created." });
+      setTimeout(() => setLocation("/user/dashboard"), 50);
+    } catch (err) {
+      toast({
+        title: "Verification failed",
+        description: getApiErrorMessage(err, "Invalid or expired code."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onResendOtp = async () => {
+    if (resendCooldown > 0 || !pendingEmail) return;
+    setIsSubmitting(true);
+    try {
+      const res = await resendSignupOtp(pendingEmail);
+      setResendCooldown(res.resend_cooldown_seconds);
+      setOtp("");
+      toast({
+        title: "Code resent",
+        description: `A new code was sent to ${res.email}.`,
+      });
+    } catch (err) {
+      toast({
+        title: "Could not resend",
+        description: getApiErrorMessage(err, "Please wait and try again."),
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -176,12 +249,69 @@ export default function Register() {
 
         <div className="w-full max-w-md py-12 lg:py-0 relative z-10">
           <div className="mb-7">
-            <h2 className="text-2xl font-bold text-white mb-1">Create your account</h2>
-            <p className="text-gray-500 text-sm">Join the 24TRADEX trading network</p>
+            <h2 className="text-2xl font-bold text-white mb-1">
+              {step === "details" ? "Create your account" : "Verify your email"}
+            </h2>
+            <p className="text-gray-500 text-sm">
+              {step === "details"
+                ? "Join the 24TRADEX trading network"
+                : `Enter the code sent to ${pendingEmail}`}
+            </p>
           </div>
 
+          {step === "verify" ? (
+            <div className="space-y-6">
+              <div className="flex justify-center">
+                <InputOTP maxLength={6} value={otp} onChange={setOtp}>
+                  <InputOTPGroup>
+                    <InputOTPSlot index={0} className="bg-white/5 text-white border-white/10" />
+                    <InputOTPSlot index={1} className="bg-white/5 text-white border-white/10" />
+                    <InputOTPSlot index={2} className="bg-white/5 text-white border-white/10" />
+                    <InputOTPSlot index={3} className="bg-white/5 text-white border-white/10" />
+                    <InputOTPSlot index={4} className="bg-white/5 text-white border-white/10" />
+                    <InputOTPSlot index={5} className="bg-white/5 text-white border-white/10" />
+                  </InputOTPGroup>
+                </InputOTP>
+              </div>
+              <Button
+                type="button"
+                className="w-full h-12 font-semibold text-sm text-white border-0"
+                style={{ background: isSubmitting ? "rgba(59,130,246,0.7)" : "#3b82f6", borderRadius: "8px" }}
+                disabled={isSubmitting || otp.length !== 6}
+                onClick={onVerifyOtp}
+              >
+                {isSubmitting ? (
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying...</>
+                ) : (
+                  "Verify & Create Account"
+                )}
+              </Button>
+              <div className="flex flex-col items-center gap-2 text-sm">
+                <button
+                  type="button"
+                  className="text-gray-400 hover:text-white disabled:opacity-40"
+                  disabled={resendCooldown > 0 || isSubmitting}
+                  onClick={onResendOtp}
+                >
+                  {resendCooldown > 0
+                    ? `Resend code in ${resendCooldown}s`
+                    : "Resend verification code"}
+                </button>
+                <button
+                  type="button"
+                  className="text-gray-500 hover:text-gray-300"
+                  onClick={() => {
+                    setStep("details");
+                    setOtp("");
+                  }}
+                >
+                  ← Back to signup details
+                </button>
+              </div>
+            </div>
+          ) : (
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={form.handleSubmit(onSubmitDetails)} className="space-y-4">
               {/* Row: Username + Full Name */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField control={form.control} name="username"
@@ -231,7 +361,7 @@ export default function Register() {
                       <div className="relative">
                         <Input
                           type={showPass ? "text" : "password"}
-                          placeholder="Minimum 6 characters"
+                          placeholder="Minimum 8 characters"
                           {...field}
                           className={`${inputCls} pr-10`}
                           style={inputStyle}
@@ -328,18 +458,19 @@ export default function Register() {
                   type="submit"
                   className="w-full h-12 font-semibold text-sm tracking-wide border-0 cursor-pointer text-white"
                   style={{
-                    background: registerMutation.isPending ? "rgba(59,130,246,0.7)" : "#3b82f6",
+                    background: isSubmitting ? "rgba(59,130,246,0.7)" : "#3b82f6",
                     borderRadius: "8px",
                   }}
-                  disabled={registerMutation.isPending}
+                  disabled={isSubmitting}
                 >
-                  {registerMutation.isPending
-                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating Account...</>
-                    : "Create Account"}
+                  {isSubmitting
+                    ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending code...</>
+                    : "Continue — Send verification code"}
                 </Button>
               </div>
             </form>
           </Form>
+          )}
 
           <p className="mt-5 text-center text-sm text-gray-500">
             Already have an account?{" "}

@@ -11,6 +11,9 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       DEBUG: "True"
       SECRET_KEY: docker-dev-secret-change-me
