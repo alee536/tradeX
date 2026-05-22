@@ -170,6 +170,7 @@ JWT_SECRET = os.environ.get('JWT_SECRET', SECRET_KEY)
 JWT_EXPIRY_HOURS = int(os.environ.get('JWT_EXPIRY_HOURS', str(24 * 7)))
 
 SITE_URL = os.environ.get('SITE_URL', 'https://24tradex.com').rstrip('/')
+SPONSOR_REF_BASE_URL = os.environ.get('SPONSOR_REF_BASE_URL', 'https://s24tx.com').rstrip('/')
 
 # React SPA (trader app) — used by Django admin "Home" link
 _frontend_url = os.environ.get('FRONTEND_URL', '').strip().rstrip('/')

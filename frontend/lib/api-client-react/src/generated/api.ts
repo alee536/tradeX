@@ -46,6 +46,9 @@ import type {
   PurchaseList,
   RegisterInput,
   RejectInput,
+  PublicSponsorRefResponse,
+  SponsorAccessRequestInput,
+  SponsorAccessRequestResponse,
   SponsorStats,
   SponsoredUserList,
   SystemSettings,
@@ -1271,6 +1274,159 @@ export function useGetSponsorStats<
     queryKey: QueryKey;
   };
 
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Submit sponsor link access request (one-time fee)
+ */
+export const getCreateSponsorAccessRequestUrl = () => {
+  return `/api/sponsor/access/request`;
+};
+
+export const createSponsorAccessRequest = async (
+  sponsorAccessRequestInput: SponsorAccessRequestInput,
+  options?: RequestInit,
+): Promise<SponsorAccessRequestResponse> => {
+  return customFetch<SponsorAccessRequestResponse>(
+    getCreateSponsorAccessRequestUrl(),
+    {
+      ...options,
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...options?.headers },
+      body: JSON.stringify(sponsorAccessRequestInput),
+    },
+  );
+};
+
+export const getCreateSponsorAccessRequestMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSponsorAccessRequest>>,
+    TError,
+    { data: SponsorAccessRequestInput },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createSponsorAccessRequest>>,
+  TError,
+  { data: SponsorAccessRequestInput },
+  TContext
+> => {
+  const mutationKey = ["createSponsorAccessRequest"];
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createSponsorAccessRequest>>,
+    { data: SponsorAccessRequestInput }
+  > = (props) => {
+    const { data } = props ?? {};
+    return createSponsorAccessRequest(data, requestOptions);
+  };
+
+  return { mutationKey, mutationFn, ...mutationOptions };
+};
+
+export type CreateSponsorAccessRequestMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createSponsorAccessRequest>>
+>;
+
+export function useCreateSponsorAccessRequest<
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createSponsorAccessRequest>>,
+    TError,
+    { data: SponsorAccessRequestInput },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createSponsorAccessRequest>>,
+  TError,
+  { data: SponsorAccessRequestInput },
+  TContext
+> {
+  return useMutation(getCreateSponsorAccessRequestMutationOptions(options));
+}
+
+/**
+ * @summary Resolve public sponsor ref slug (registration)
+ */
+export const getPublicSponsorRefUrl = (slug: string) => {
+  return `/api/sponsor/ref/${encodeURIComponent(slug)}`;
+};
+
+export const getPublicSponsorRef = async (
+  slug: string,
+  options?: RequestInit,
+): Promise<PublicSponsorRefResponse> => {
+  return customFetch<PublicSponsorRefResponse>(getPublicSponsorRefUrl(slug), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetPublicSponsorRefQueryKey = (slug: string) => {
+  return [`/api/sponsor/ref`, slug] as const;
+};
+
+export const getGetPublicSponsorRefQueryOptions = <
+  TData = Awaited<ReturnType<typeof getPublicSponsorRef>>,
+  TError = ErrorType<unknown>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicSponsorRef>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetPublicSponsorRefQueryKey(slug);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPublicSponsorRef>>> = ({
+    signal,
+  }) => getPublicSponsorRef(slug, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!slug,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getPublicSponsorRef>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export function useGetPublicSponsorRef<
+  TData = Awaited<ReturnType<typeof getPublicSponsorRef>>,
+  TError = ErrorType<unknown>,
+>(
+  slug: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getPublicSponsorRef>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPublicSponsorRefQueryOptions(slug, options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
   return { ...query, queryKey: queryOptions.queryKey };
 }
 

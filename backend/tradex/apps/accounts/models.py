@@ -24,6 +24,47 @@ class User(AbstractUser):
     full_name = models.CharField(max_length=255)
     email = models.EmailField(unique=True)
     sponsor_code = models.CharField(max_length=20, unique=True, blank=True)
+    # ============== Sponsor link access (paid + admin-approved) ==============
+    SPONSOR_ACCESS_NONE = 'none'
+    SPONSOR_ACCESS_PENDING = 'pending'
+    SPONSOR_ACCESS_ACTIVE = 'active'
+    SPONSOR_ACCESS_REJECTED = 'rejected'
+    SPONSOR_ACCESS_CHOICES = [
+        (SPONSOR_ACCESS_NONE, 'None'),
+        (SPONSOR_ACCESS_PENDING, 'Pending'),
+        (SPONSOR_ACCESS_ACTIVE, 'Active'),
+        (SPONSOR_ACCESS_REJECTED, 'Rejected'),
+    ]
+    sponsor_access_status = models.CharField(
+        max_length=20,
+        choices=SPONSOR_ACCESS_CHOICES,
+        default=SPONSOR_ACCESS_NONE,
+        db_index=True,
+        blank=True,
+    )
+    sponsor_ref_slug = models.CharField(
+        max_length=32,
+        unique=True,
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text='Short public ref for s24tx.com/ref/SLUG',
+    )
+    sponsor_activated_at = models.DateTimeField(null=True, blank=True)
+    SPONSOR_PAYMENT_NONE = 'none'
+    SPONSOR_PAYMENT_PENDING = 'pending'
+    SPONSOR_PAYMENT_PAID = 'paid'
+    SPONSOR_PAYMENT_CHOICES = [
+        (SPONSOR_PAYMENT_NONE, 'None'),
+        (SPONSOR_PAYMENT_PENDING, 'Pending'),
+        (SPONSOR_PAYMENT_PAID, 'Paid'),
+    ]
+    sponsor_payment_status = models.CharField(
+        max_length=20,
+        choices=SPONSOR_PAYMENT_CHOICES,
+        default=SPONSOR_PAYMENT_NONE,
+        blank=True,
+    )
     wallet_address = models.CharField(max_length=255, blank=True, null=True)
     is_banned = models.BooleanField(default=False)
     sponsor_earnings = models.DecimalField(max_digits=20, decimal_places=8, default=0)
@@ -50,8 +91,23 @@ class User(AbstractUser):
         super().save(*args, **kwargs)
 
     @property
+    def has_active_sponsor_access(self):
+        return self.sponsor_access_status == self.SPONSOR_ACCESS_ACTIVE
+
+    @property
+    def sponsor_public_path(self):
+        """Short referral path, e.g. /ref/ALEE24 (only when access is active)."""
+        if not self.has_active_sponsor_access or not self.sponsor_ref_slug:
+            return None
+        return f"/ref/{self.sponsor_ref_slug}"
+
+    @property
     def sponsor_link(self):
         from django.conf import settings
+        path = self.sponsor_public_path
+        if path:
+            base = getattr(settings, 'SPONSOR_REF_BASE_URL', settings.SITE_URL).rstrip('/')
+            return f"{base}{path}"
         return f"{settings.SITE_URL}/register?sp={self.sponsor_code}"
 
     @property

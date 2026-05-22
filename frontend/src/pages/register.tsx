@@ -78,6 +78,16 @@ export default function Register() {
     defaultValues: { username: "", full_name: "", email: "", password: "", confirm_password: "", sponsor_code: "" },
   });
 
+  // Pre-fill sponsor from ?ref=ALEE24 (short link) or legacy ?sp=24TX-XXXXXX
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref") || params.get("sp");
+    if (ref) {
+      form.setValue("sponsor_code", ref.trim().toUpperCase());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
+  }, []);
+
   const passwordValue = form.watch("password");
   const strength = getPasswordStrength(passwordValue);
 
@@ -306,7 +316,7 @@ export default function Register() {
                       Sponsor Code <span className="normal-case font-normal text-gray-600">(optional)</span>
                     </FormLabel>
                     <FormControl>
-                      <Input placeholder="24TX-XXXXXX" {...field} className={inputCls} style={inputStyle} />
+                      <Input placeholder="ALEE24 or 24TX-XXXXXX" {...field} className={inputCls} style={inputStyle} />
                     </FormControl>
                     <FormMessage className="text-xs" />
                   </FormItem>

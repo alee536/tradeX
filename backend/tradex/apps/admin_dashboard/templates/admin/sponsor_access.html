@@ -1,0 +1,335 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Sponsor Access Requests - 24TradeX Admin{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<div class="page-hero admin-animate-in">
+    <div class="page-hero-inner">
+        <div class="page-hero-icon">
+            <i class="bi bi-link-45deg"></i>
+        </div>
+        <div class="flex-grow-1">
+            <h1>Sponsor Link Access</h1>
+            <p>
+                Review one-time {% firstof requests.0.fee_usdt "5" %} USDT fee payments and activate public ref links
+                (e.g. <strong style="color:#c4b5fd;">s24tx.com/ref/ALEE24</strong>) for lifetime referral earnings.
+            </p>
+        </div>
+        <span class="badge-pending d-inline-flex align-items-center gap-1" style="font-size:13px;">
+            <span class="d-inline-block rounded-circle bg-warning" style="width:8px;height:8px;animation:adminGlowPulse 1.5s infinite;"></span>
+            {{ stats_pending }} pending
+        </span>
+    </div>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3 admin-animate-in admin-delay-1">
+        <div class="stat-card stat-card-violet">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">Total requests</div>
+                    <p class="stat-value" style="color:#a78bfa;">{{ stats_total }}</p>
+                </div>
+                <div class="stat-icon"><i class="bi bi-collection"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3 admin-animate-in admin-delay-2">
+        <div class="stat-card stat-card-amber">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">Pending review</div>
+                    <p class="stat-value" style="color:#fbbf24;">{{ stats_pending }}</p>
+                </div>
+                <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3 admin-animate-in admin-delay-3">
+        <div class="stat-card stat-card-green">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">Approved / live</div>
+                    <p class="stat-value" style="color:#34d399;">{{ stats_approved }}</p>
+                </div>
+                <div class="stat-icon"><i class="bi bi-check-circle"></i></div>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3 admin-animate-in admin-delay-4">
+        <div class="stat-card stat-card-red">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <div class="stat-label">Rejected</div>
+                    <p class="stat-value" style="color:#f87171;">{{ stats_rejected }}</p>
+                </div>
+                <div class="stat-icon"><i class="bi bi-x-circle"></i></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Pipeline hint -->
+<div class="admin-panel admin-animate-in admin-delay-2">
+    <div class="admin-panel-title">
+        <i class="bi bi-diagram-3"></i> Approval flow
+    </div>
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3" style="font-size:13px;color:#cbd5e1;">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <span class="badge-pending"><i class="bi bi-wallet2 me-1"></i>User pays fee</span>
+            <i class="bi bi-arrow-right text-muted"></i>
+            <span class="badge-pending"><i class="bi bi-send me-1"></i>Submits request</span>
+            <i class="bi bi-arrow-right text-muted"></i>
+            <span class="badge-approved"><i class="bi bi-shield-check me-1"></i>You approve</span>
+            <i class="bi bi-arrow-right text-muted"></i>
+            <span class="badge-approved"><i class="bi bi-link-45deg me-1"></i>Link goes live</span>
+        </div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="admin-panel admin-animate-in admin-delay-3">
+    <div class="admin-panel-title">
+        <i class="bi bi-funnel"></i> Filter requests
+    </div>
+    <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+            <label class="form-label"><i class="bi bi-filter me-1"></i> Status</label>
+            <select name="status" class="form-select">
+                <option value="">All Statuses</option>
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-search"></i> Filter
+            </button>
+        </div>
+        {% if status_filter %}
+        <div class="col-md-3">
+            <a href="{% url 'admin_dashboard:sponsor_access' %}" class="btn btn-outline-secondary w-100">
+                <i class="bi bi-x-lg"></i> Clear
+            </a>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Table -->
+<div class="admin-panel admin-animate-in admin-delay-4" style="padding:0;overflow:hidden;">
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
+                <tr>
+                    <th><i class="bi bi-person me-1"></i> User</th>
+                    <th><i class="bi bi-tag me-1"></i> Ref slug</th>
+                    <th><i class="bi bi-currency-dollar me-1"></i> Fee</th>
+                    <th><i class="bi bi-credit-card me-1"></i> Payment</th>
+                    <th><i class="bi bi-flag me-1"></i> Status</th>
+                    <th><i class="bi bi-hash me-1"></i> Tx / Wallet</th>
+                    <th><i class="bi bi-calendar3 me-1"></i> Submitted</th>
+                    <th><i class="bi bi-lightning me-1"></i> Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for req in requests %}
+                <tr class="admin-row-in" style="animation-delay: {{ forloop.counter0|add:0 }}0ms;">
+                    <td>
+                        <a href="{% url 'admin_dashboard:user_detail' req.user.id %}"
+                           style="color:#93c5fd;text-decoration:none;">
+                            <strong><i class="bi bi-person-circle me-1"></i>{{ req.user.username }}</strong>
+                        </a><br>
+                        <small class="text-muted">{{ req.user.email }}</small>
+                    </td>
+                    <td>
+                        <span class="ref-slug-pill">
+                            <i class="bi bi-link-45deg"></i>{{ req.ref_slug }}
+                        </span>
+                        <button type="button" class="btn-copy-mini mt-1" data-copy="{{ req.ref_slug }}"
+                                onclick="copyFromBtn(this)">
+                            <i class="bi bi-clipboard"></i> Copy
+                        </button>
+                    </td>
+                    <td>
+                        <span style="color:#fbbf24;font-weight:600;">{{ req.fee_usdt }}</span>
+                        <small class="text-muted"> USDT</small>
+                    </td>
+                    <td>
+                        {% if req.payment_status == 'paid' %}
+                            <span class="badge-approved"><i class="bi bi-check2 me-1"></i>Paid</span>
+                        {% else %}
+                            <span class="badge-pending"><i class="bi bi-clock me-1"></i>Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if req.status == 'approved' %}
+                            <span class="badge-approved"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                        {% elif req.status == 'rejected' %}
+                            <span class="badge-rejected"><i class="bi bi-x-circle me-1"></i>Rejected</span>
+                        {% else %}
+                            <span class="badge-pending"><i class="bi bi-hourglass me-1"></i>Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if req.payment_txid %}
+                        <span class="tx-mono" title="{{ req.payment_txid }}">{{ req.payment_txid|truncatechars:28 }}</span>
+                        <button type="button" class="btn-copy-mini mt-1" data-copy="{{ req.payment_txid }}"
+                                onclick="copyFromBtn(this)">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                        {% else %}<span class="text-muted">—</span>{% endif %}
+                        {% if req.payment_wallet %}
+                        <span class="tx-mono mt-1" title="{{ req.payment_wallet }}">{{ req.payment_wallet|truncatechars:22 }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <small><i class="bi bi-clock-history me-1"></i>{{ req.created_at|date:"M d, Y" }}</small><br>
+                        <small class="text-muted">{{ req.created_at|date:"H:i" }}</small>
+                    </td>
+                    <td>
+                        {% if req.status == 'pending' %}
+                        <div class="d-flex flex-column gap-2" style="min-width:140px;">
+                            <button type="button" class="btn-action btn-action-approve"
+                                    data-approve-url="{% url 'admin_dashboard:approve_sponsor_access' req.id %}"
+                                    data-ref-slug="{{ req.ref_slug }}"
+                                    onclick="openApproveSponsorModal(this)">
+                                <i class="bi bi-check-lg"></i> Approve
+                            </button>
+                            <button type="button" class="btn-action btn-action-reject"
+                                    data-reject-url="{% url 'admin_dashboard:reject_sponsor_access' req.id %}"
+                                    onclick="openRejectSponsorModal(this)">
+                                <i class="bi bi-x-lg"></i> Reject
+                            </button>
+                        </div>
+                        {% else %}
+                        <span class="text-muted" style="font-size:12px;">
+                            {% if req.activated_at %}
+                                <i class="bi bi-lightning-charge text-success"></i> Live {{ req.activated_at|date:"M d" }}
+                            {% elif req.rejection_reason %}
+                                <i class="bi bi-chat-left-text"></i> {{ req.rejection_reason|truncatechars:40 }}
+                            {% else %}
+                                <i class="bi bi-dash"></i> —
+                            {% endif %}
+                        </span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="8">
+                        <div class="empty-state">
+                            <i class="bi bi-inbox"></i>
+                            <p class="mb-0">No sponsor access requests found.</p>
+                            {% if status_filter %}
+                            <a href="{% url 'admin_dashboard:sponsor_access' %}" class="btn btn-outline-secondary btn-sm mt-3">
+                                View all requests
+                            </a>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Approve modal -->
+<div id="approveSponsorModal" class="modal" tabindex="-1" style="display:none;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-check-circle text-success me-2"></i>Approve sponsor access
+                </h5>
+                <button type="button" class="btn-close" onclick="closeAdminModal('approveSponsorModal')"></button>
+            </div>
+            <form id="approveSponsorForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <p style="color:#94a3b8;font-size:14px;">
+                        Activates <strong id="approveRefSlug" style="color:#c4b5fd;">—</strong> for lifetime.
+                        User can share <code>s24tx.com/ref/…</code> immediately.
+                    </p>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" onclick="closeAdminModal('approveSponsorModal')">Cancel</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-check-lg"></i> Confirm approve
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Reject modal -->
+<div id="rejectSponsorModal" class="modal" tabindex="-1" style="display:none;">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title">
+                    <i class="bi bi-x-circle text-danger me-2"></i>Reject sponsor access
+                </h5>
+                <button type="button" class="btn-close" onclick="closeAdminModal('rejectSponsorModal')"></button>
+            </div>
+            <form id="rejectSponsorForm" method="post">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <label class="form-label">Rejection reason (optional)</label>
+                    <input type="text" name="reason" class="form-control"
+                           placeholder="e.g. Invalid payment proof">
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-outline-secondary" onclick="closeAdminModal('rejectSponsorModal')">Cancel</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-lg"></i> Confirm reject
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function closeAdminModal(id) {
+    document.getElementById(id).style.display = 'none';
+}
+
+function openApproveSponsorModal(btn) {
+    document.getElementById('approveSponsorForm').action = btn.getAttribute('data-approve-url');
+    document.getElementById('approveRefSlug').textContent = btn.getAttribute('data-ref-slug') || '—';
+    document.getElementById('approveSponsorModal').style.display = 'block';
+}
+
+function openRejectSponsorModal(btn) {
+    document.getElementById('rejectSponsorForm').action = btn.getAttribute('data-reject-url');
+    document.getElementById('rejectSponsorModal').style.display = 'block';
+}
+
+function copyFromBtn(btn) {
+    var text = btn.getAttribute('data-copy');
+    if (!text) return;
+    copyText(text, btn);
+}
+
+function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(function() {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2"></i> Copied';
+        btn.style.color = '#86efac';
+        setTimeout(function() { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+    });
+}
+
+document.querySelectorAll('.modal').forEach(function(modal) {
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeAdminModal(modal.id);
+    });
+});
+</script>
+{% endblock %}

@@ -120,6 +120,7 @@ def compute_user_profit_summary(user, settings_obj):
             'enabled': True,
             'profit_percentage': float(pct),
             'profit_cycle_hours': cycle_hours,
+            'purchase_count': 0,
             'base_usdt': 0.0,
             'estimated_profit_usdt': 0.0,
             'total_after_profit_usdt': 0.0,
@@ -132,6 +133,7 @@ def compute_user_profit_summary(user, settings_obj):
         }
 
     purchases = list(_assigned_purchases_qs(user))
+    purchase_count = len(purchases)
     base_usdt = _sum_base_usdt(purchases)
     now = timezone.now()
     next_claim_at = _next_claim_deadline(user, purchases, cycle_hours)
@@ -160,6 +162,7 @@ def compute_user_profit_summary(user, settings_obj):
         'enabled': True,
         'profit_percentage': float(pct),
         'profit_cycle_hours': cycle_hours,
+        'purchase_count': purchase_count,
         'base_usdt': float(base_usdt),
         'estimated_profit_usdt': float(estimated_profit),
         'total_after_profit_usdt': float(total_after),

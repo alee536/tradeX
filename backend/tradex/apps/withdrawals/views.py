@@ -1,6 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
+from django.db import models
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -93,27 +94,29 @@ def sync_user_withdrawals(user):
 
 
 def get_available_balance(user):
+    """
+    Wallet balance available for withdrawal requests.
+    Staged claims credit coins instantly; withdrawals still need admin approval.
+    """
     from apps.purchases.models import Purchase
     from apps.settings_app.profit import get_profit_bonus_coins
 
     approved_purchases = Purchase.objects.filter(user=user, status='approved', is_coins_assigned=True)
-    total_unlocked = sum(float(p.unlocked_amount) for p in approved_purchases)
     total_assigned = sum(
         float(p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins)
         for p in approved_purchases
     )
+    wallet_from_claims = total_claimed_coins(user)
     profit_bonus = get_profit_bonus_coins(user)
 
     total_withdrawn = sum(
         w.amount for w in Withdrawal.objects.filter(user=user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
     )
-    # Staged claim system also reserves coins to avoid double spending.
-    total_via_claims = total_claimed_coins(user)
     available = max(
         0.0,
-        float(total_unlocked) + profit_bonus - float(total_withdrawn) - float(total_via_claims),
+        float(wallet_from_claims) + profit_bonus - float(total_withdrawn),
     )
-    return available, float(total_unlocked), float(total_assigned)
+    return available, float(wallet_from_claims), float(total_assigned)
 
 
 @api_view(['GET', 'POST'])
@@ -137,10 +140,10 @@ def withdrawals_list(request):
         return Response(serializer.errors, status=400)
 
     amount = serializer.validated_data['amount']
-    available, total_unlocked, total_assigned = get_available_balance(request.user)
+    available, wallet_from_claims, total_assigned = get_available_balance(request.user)
 
     if float(amount) > available:
-        if total_assigned > 0 and total_unlocked <= 0:
+        if total_assigned > 0 and wallet_from_claims <= 0:
             from apps.settings_app.models import SystemSettings
             settings_obj = SystemSettings.get_settings()
             return Response(
@@ -174,13 +177,16 @@ def unlocked_amount(request):
 
     from apps.settings_app.profit import get_profit_bonus_coins
 
-    approved_purchases = Purchase.objects.filter(user=request.user, status='approved', is_coins_assigned=True)
-    total_unlocked = sum(p.unlocked_amount for p in approved_purchases)
+    from apps.purchases.models import Purchase
+
+    approved_purchases = Purchase.objects.filter(
+        user=request.user, status='approved', is_coins_assigned=True,
+    )
+    available, wallet_from_claims, total_assigned = get_available_balance(request.user)
     profit_bonus = get_profit_bonus_coins(request.user)
     total_withdrawn = sum(
         w.amount for w in Withdrawal.objects.filter(user=request.user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
     )
-    available = float(total_unlocked) + profit_bonus - float(total_withdrawn)
 
     breakdown = []
     settings_obj = SystemSettings.get_settings()
@@ -188,49 +194,33 @@ def unlocked_amount(request):
     for p in approved_purchases:
         if not p.approved_at:
             continue
-        now = timezone.now()
-        elapsed = now - p.approved_at
-        elapsed_hours = elapsed.total_seconds() / 3600
-
-        stage1_h = settings_obj.stage1_hours
-        stage2_h = stage1_h + settings_obj.stage2_hours
-        stage3_h = stage2_h + settings_obj.stage3_hours
-
-        current_stage = 0
-        next_unlock_at = None
-        if elapsed_hours < stage1_h:
-            current_stage = 0
-            hours_left = stage1_h - elapsed_hours
-            next_unlock_at = (now + timedelta(hours=hours_left)).isoformat()
-        elif elapsed_hours < stage2_h:
-            current_stage = 1
-            hours_left = stage2_h - elapsed_hours
-            next_unlock_at = (now + timedelta(hours=hours_left)).isoformat()
-        elif elapsed_hours < stage3_h:
-            current_stage = 2
-            hours_left = stage3_h - elapsed_hours
-            next_unlock_at = (now + timedelta(hours=hours_left)).isoformat()
-        else:
-            current_stage = 3
-
-        purchase_coin_amount = float(p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins)
-
+        purchase_coin_amount = float(
+            p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins
+        )
+        claimed_for_purchase = float(
+            PurchaseClaim.objects.filter(
+                purchase=p, user=request.user, status='approved',
+            ).aggregate(total=models.Sum('amount_coins'))['total'] or 0
+        )
         breakdown.append({
             'purchase_id': p.id,
             'transaction_id': p.transaction_id,
             'amount': purchase_coin_amount,
-            'unlocked': p.unlocked_amount,
-            'unlocked_usdt': float(p.unlocked_amount) * float(settings_obj.coin_rate),
-            'stage': current_stage,
-            'next_unlock_at': next_unlock_at,
+            'unlocked': claimed_for_purchase,
+            'unlocked_usdt': float(claimed_for_purchase) * float(settings_obj.coin_rate),
+            'stage': PurchaseClaim.objects.filter(
+                purchase=p, user=request.user, status='approved',
+            ).count(),
+            'next_unlock_at': None,
         })
 
     return Response({
-        'total_unlocked': float(total_unlocked),
+        'total_unlocked': float(wallet_from_claims),
         'total_withdrawn': float(total_withdrawn),
         'available': max(0, available),
         'available_usdt_equivalent': float(max(0, available) * float(settings_obj.coin_rate)),
         'coin_rate': float(settings_obj.coin_rate),
+        'profit_bonus_coins': profit_bonus,
         'breakdown': breakdown,
     })
 
@@ -288,13 +278,15 @@ class ClaimCreateView(APIView):
             return Response({'error': 'Purchase not found.'}, status=status.HTTP_404_NOT_FOUND)
 
         try:
-            create_claim(request.user, purchase, stage, wallet_address)
+            claim = create_claim(request.user, purchase, stage, wallet_address)
         except ClaimError as exc:
             return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
-
         return Response(
             {
-                'message': f'Stage {stage} claim submitted for admin review.',
+                'message': (
+                    f'Stage {stage} claimed successfully. '
+                    f'{claim.amount_coins} coins added to your wallet.'
+                ),
                 'schedule': get_purchase_schedule(purchase),
             },
             status=status.HTTP_201_CREATED,

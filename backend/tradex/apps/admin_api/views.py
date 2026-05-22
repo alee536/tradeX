@@ -9,6 +9,12 @@ from apps.accounts.models import User
 from apps.purchases.models import Purchase, PurchaseRejectionDocument
 from apps.withdrawals.claims import ClaimError, approve_claim, reject_claim
 from apps.withdrawals.models import PurchaseClaim, Withdrawal
+from apps.sponsor.access import (
+    SponsorAccessError,
+    approve_sponsor_access_request,
+    reject_sponsor_access_request,
+)
+from apps.sponsor.models import SponsorAccessRequest
 from apps.notifications.utils import create_notification
 from apps.settings_app.models import SystemSettings
 from apps.settings_app.serializers import SystemSettingsSerializer
@@ -505,6 +511,86 @@ def admin_reject_claim(request, pk):
     return Response({
         'message': 'Claim rejected.',
         'claim': _serialize_admin_claim(claim),
+    })
+
+
+# ============== Sponsor access requests ==============
+
+
+def _serialize_admin_sponsor_request(req):
+    user = req.user
+    return {
+        'id': req.id,
+        'status': req.status,
+        'payment_status': req.payment_status,
+        'fee_usdt': float(req.fee_usdt),
+        'ref_slug': req.ref_slug,
+        'payment_txid': req.payment_txid,
+        'payment_wallet': req.payment_wallet,
+        'rejection_reason': req.rejection_reason,
+        'created_at': req.created_at.isoformat() if req.created_at else None,
+        'reviewed_at': req.reviewed_at.isoformat() if req.reviewed_at else None,
+        'activated_at': req.activated_at.isoformat() if req.activated_at else None,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+            'email': user.email,
+            'full_name': user.full_name,
+        },
+    }
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_list_sponsor_access_requests(request):
+    qs = (
+        SponsorAccessRequest.objects.all()
+        .select_related('user')
+        .order_by('-created_at')
+    )
+    status_filter = request.query_params.get('status')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+
+    paginator = AdminPaginator()
+    page = paginator.paginate_queryset(qs, request)
+    return paginator.get_paginated_response(
+        [_serialize_admin_sponsor_request(r) for r in page]
+    )
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_approve_sponsor_access(request, pk):
+    try:
+        req = SponsorAccessRequest.objects.select_related('user').get(pk=pk)
+    except SponsorAccessRequest.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
+    try:
+        approve_sponsor_access_request(req)
+    except SponsorAccessError as exc:
+        return Response({'error': str(exc)}, status=400)
+    return Response({
+        'message': 'Sponsor access approved.',
+        'request': _serialize_admin_sponsor_request(req),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_reject_sponsor_access(request, pk):
+    try:
+        req = SponsorAccessRequest.objects.select_related('user').get(pk=pk)
+    except SponsorAccessRequest.DoesNotExist:
+        return Response({'error': 'Not found'}, status=404)
+    reason = request.data.get('reason', '')
+    try:
+        reject_sponsor_access_request(req, reason)
+    except SponsorAccessError as exc:
+        return Response({'error': str(exc)}, status=400)
+    return Response({
+        'message': 'Sponsor access rejected.',
+        'request': _serialize_admin_sponsor_request(req),
     })
 
 

@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCrypto, formatCurrency } from "@/lib/utils";
-import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Gift, Loader2 } from "lucide-react";
+import { Wallet, ArrowDownToLine, Clock, Users, AlertCircle, TrendingUp, Gift, Loader2, Percent, Plus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 
@@ -59,6 +59,7 @@ function ProfitRewardCard({
     enabled: boolean;
     profit_percentage?: number;
     profit_cycle_hours?: number;
+    purchase_count?: number;
     base_usdt?: number;
     estimated_profit_usdt?: number;
     total_after_profit_usdt?: number;
@@ -105,6 +106,11 @@ function ProfitRewardCard({
 
   if (!profit?.enabled) return null;
 
+  const pct = profit.profit_percentage ?? 0;
+  const base = profit.base_usdt ?? 0;
+  const profitAdd = profit.estimated_profit_usdt ?? 0;
+  const total = profit.total_after_profit_usdt ?? 0;
+
   return (
     <Card className="glass-panel border-l-4 border-l-amber-500 md:col-span-2">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -112,11 +118,31 @@ function ProfitRewardCard({
           <TrendingUp className="h-4 w-4 text-amber-400" />
           Profit / Reward
         </CardTitle>
-        <span className="text-xs font-semibold text-amber-300 bg-amber-500/10 px-2 py-1 rounded">
-          {profit.profit_percentage ?? 0}% active
+        <span className="text-xs font-semibold text-amber-300 bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1">
+          <Percent className="h-3 w-3" />
+          {pct}% on your profile deposits
         </span>
       </CardHeader>
       <CardContent>
+        {/* Formula: base + profit% = total */}
+        <div className="mb-4 rounded-lg border border-amber-500/25 bg-gradient-to-r from-amber-500/10 to-transparent p-4">
+          <p className="text-xs text-muted-foreground mb-2">
+            Based on {(profit.purchase_count ?? 0)} approved purchase{(profit.purchase_count ?? 0) === 1 ? "" : "s"} on your profile
+          </p>
+          <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base font-mono">
+            <span className="text-white font-semibold">{formatCurrency(base)}</span>
+            <Plus className="h-4 w-4 text-amber-400 shrink-0" />
+            <span className="text-amber-300 font-semibold">
+              {pct}% ({formatCurrency(profitAdd)})
+            </span>
+            <span className="text-muted-foreground">=</span>
+            <span className="text-green-400 font-bold text-lg">{formatCurrency(total)}</span>
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-2">
+            Admin profit rate is applied to your total USDT deposits; the +{pct}% is added on top.
+          </p>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="text-xs text-muted-foreground mb-1">Purchase base (USDT)</p>
@@ -242,6 +268,33 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Profit rate highlight when enabled */}
+      {!isLoading && summary?.profit?.enabled && (
+        <Card className="glass-panel border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-transparent to-violet-500/5 animate-in fade-in duration-500">
+          <CardContent className="p-4 flex flex-wrap items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/30">
+              <Percent className="h-6 w-6 text-amber-400" />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <p className="text-sm font-semibold text-white">
+                Your profit rate: {summary.profit.profit_percentage ?? 0}%
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Deposits {formatCurrency(summary.profit.base_usdt ?? 0)} + {summary.profit.profit_percentage ?? 0}% bonus{" "}
+                <span className="text-amber-300">({formatCurrency(summary.profit.estimated_profit_usdt ?? 0)})</span>
+                {" "}= {formatCurrency(summary.profit.total_after_profit_usdt ?? 0)} total value
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-muted-foreground">Total with profit</p>
+              <p className="text-2xl font-bold text-green-400">
+                {formatCurrency(summary.profit.total_after_profit_usdt ?? 0)}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="glass-panel border-l-4 border-l-primary">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -254,8 +307,15 @@ export default function Dashboard() {
             {isLoading ? (
               <Skeleton className="h-8 w-30" />
             ) : (
-              <div className="text-2xl font-bold text-white">
-                <AnimatedCounter value={summary?.total_purchased || 0} />
+              <div className="space-y-1">
+                <div className="text-2xl font-bold text-white">
+                  <AnimatedCounter value={summary?.total_purchased || 0} />
+                </div>
+                {summary?.profit?.enabled && (summary.profit.base_usdt ?? 0) > 0 && (
+                  <p className="text-[11px] text-amber-300/90">
+                    USDT deposits: {formatCurrency(summary.profit.base_usdt ?? 0)}
+                  </p>
+                )}
               </div>
             )}
           </CardContent>

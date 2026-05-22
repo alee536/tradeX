@@ -6,11 +6,11 @@ Encapsulates the per-purchase staged claim/withdrawal logic.
 Business rules:
     1. Timer for Stage 1 starts at purchase approval (coins assignment).
     2. Stage 1 unlocks after `stage1_hours` (default 72h).
-    3. Stage N (N>1) unlocks after `stageN_hours` measured from the time
-       Stage N-1 was approved by an admin.
+    3. Stage N (N>1) unlocks after `stageN_hours` from when Stage N-1 was claimed.
     4. Stage percentages come from `SystemSettings` (normalized to 100).
-    5. A new claim can only be created if no pending/approved claim already
-       exists for that stage.
+    5. Claims auto-approve: coins credit the in-app wallet immediately.
+    6. Withdrawals still require admin approval (separate flow).
+    7. A new claim can only be created if that stage is not already approved.
 
 All timestamps are stored in the database; the frontend only renders the
 schedule returned by the API.
@@ -251,7 +251,7 @@ def _validate_stage_ready(purchase, stage, settings_obj):
         .first()
     )
     if not previous or previous.status != 'approved':
-        raise ClaimError(f'Stage {stage - 1} must be approved by admin first.')
+        raise ClaimError(f'Stage {stage - 1} must be claimed first.')
 
     if not previous.approved_at:
         raise ClaimError(f'Stage {stage - 1} is missing an approval timestamp.')
@@ -263,18 +263,29 @@ def _validate_stage_ready(purchase, stage, settings_obj):
         )
 
 
+def _instant_approve_claim(claim):
+    """Credit claimed coins to the user's in-app wallet (no admin step)."""
+    now = timezone.now()
+    claim.status = 'approved'
+    claim.approved_at = now
+    claim.rejected_at = None
+    claim.rejection_reason = None
+    claim.save(update_fields=[
+        'status', 'approved_at', 'rejected_at', 'rejection_reason',
+    ])
+    return claim
+
+
 @transaction.atomic
-def create_claim(user, purchase, stage, wallet_address):
-    """User-side action: submit a claim request for one stage."""
+def create_claim(user, purchase, stage, wallet_address=None):
+    """User claims a stage; coins are credited to wallet immediately."""
     from apps.settings_app.models import SystemSettings
     from .models import PurchaseClaim
 
     if purchase.user_id != user.id:
         raise ClaimError('Purchase does not belong to the user.')
 
-    wallet_address = (wallet_address or '').strip()
-    if not wallet_address:
-        raise ClaimError('Wallet address is required.')
+    wallet_address = (wallet_address or user.wallet_address or '').strip()
 
     settings_obj = SystemSettings.get_settings()
     _validate_stage_ready(purchase, stage, settings_obj)
@@ -293,13 +304,14 @@ def create_claim(user, purchase, stage, wallet_address):
         coin_rate_snapshot=Decimal(str(settings_obj.coin_rate or 0)),
         wallet_address=wallet_address,
     )
+    _instant_approve_claim(claim)
 
     create_notification(
         user,
-        'claim_submitted',
+        'claim_approved',
         (
-            f'Claim Stage {stage} ({coins} coins) for purchase '
-            f'{purchase.transaction_id} has been submitted for admin review.'
+            f'Stage {stage} claim credited: {coins} coins added to your wallet '
+            f'for purchase {purchase.transaction_id}. Withdraw when ready.'
         ),
     )
     return claim
@@ -361,12 +373,12 @@ def reject_claim(claim, reason):
 
 
 def total_claimed_coins(user):
-    """Sum of pending + approved claim amounts (counted against balance)."""
+    """Sum of approved claim amounts (in-app wallet balance from staged claims)."""
     from .models import PurchaseClaim
     from django.db.models import Sum
 
     total = PurchaseClaim.objects.filter(
         user=user,
-        status__in=('pending', 'approved'),
+        status='approved',
     ).aggregate(total=Sum('amount_coins'))['total']
     return float(total or 0)

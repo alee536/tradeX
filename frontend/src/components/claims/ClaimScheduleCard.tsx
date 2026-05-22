@@ -39,16 +39,16 @@ function getStageButtonConfig(stage: PurchaseClaimStage, isSubmitting: boolean) 
   switch (stage.state) {
     case "approved":
       return {
-        label: "Completed",
+        label: "In wallet",
         className:
           "w-full bg-white/10 text-muted-foreground border border-white/10 cursor-not-allowed hover:bg-white/10",
         disabled: true,
       };
     case "pending":
       return {
-        label: "Awaiting admin",
+        label: "Processing…",
         className:
-          "w-full bg-blue-500/15 text-blue-300/90 border border-blue-500/30 cursor-not-allowed hover:bg-blue-500/15",
+          "w-full bg-green-500/15 text-green-300/90 border border-green-500/30 cursor-not-allowed hover:bg-green-500/15",
         disabled: true,
       };
     case "rejected":
@@ -95,13 +95,13 @@ function stageBadge(stage: PurchaseClaimStage) {
     case "approved":
       return (
         <Badge className="bg-green-500/20 text-green-400 border-green-500/40">
-          <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
+          <CheckCircle2 className="w-3 h-3 mr-1" /> In wallet
         </Badge>
       );
     case "pending":
       return (
-        <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/40">
-          <Hourglass className="w-3 h-3 mr-1" /> Awaiting admin
+        <Badge className="bg-green-500/20 text-green-400 border-green-500/40">
+          <Hourglass className="w-3 h-3 mr-1" /> Crediting…
         </Badge>
       );
     case "rejected":
@@ -187,20 +187,11 @@ function StageCard({
           : stage.state === "available"
             ? "Available now"
             : stage.state === "pending"
-              ? `Submitted ${stage.claim?.created_at ? new Date(stage.claim.created_at).toLocaleString() : ""}`
+              ? "Adding to wallet…"
               : stage.state === "approved"
-                ? `Approved ${stage.claim?.approved_at ? new Date(stage.claim.approved_at).toLocaleString() : ""}`
+                ? `Credited ${stage.claim?.approved_at ? new Date(stage.claim.approved_at).toLocaleString() : ""}`
                 : stage.claim?.rejection_reason || "Rejected"}
       </div>
-
-      {showWalletField && stage.can_request && (
-        <Input
-          placeholder="Receiving wallet address"
-          value={walletAddress}
-          onChange={(e) => onWalletChange(e.target.value)}
-          className="bg-black/30 font-mono text-xs"
-        />
-      )}
 
       <Button
         size="sm"
@@ -228,16 +219,13 @@ export function ClaimScheduleCard({
   onSuccess: () => void;
 }) {
   const { toast } = useToast();
-  const [wallet, setWallet] = useState("");
-
   const claimMutation = useCreatePurchaseClaim({
     mutation: {
       onSuccess: (data) => {
         toast({
-          title: "Claim submitted",
+          title: "Coins added to wallet",
           description: data.message,
         });
-        setWallet("");
         onSuccess();
       },
       onError: (err: unknown) => {
@@ -252,24 +240,15 @@ export function ClaimScheduleCard({
   });
 
   const submit = (stageNo: 1 | 2 | 3) => {
-    if (!wallet || wallet.trim().length < 10) {
-      toast({
-        title: "Wallet required",
-        description: "Enter a receiving wallet address before claiming.",
-        variant: "destructive",
-      });
-      return;
-    }
     claimMutation.mutate({
       data: {
         purchase_id: schedule.purchase_id,
         stage: stageNo,
-        wallet_address: wallet.trim(),
+        wallet_address: wallet.trim() || undefined,
       },
     });
   };
 
-  // Determine which stage is the next actionable one (so wallet input only shows there)
   const actionableStage = schedule.stages.find((s) => s.can_request);
 
   return (
@@ -292,7 +271,7 @@ export function ClaimScheduleCard({
       <CardContent>
         <ClaimPipelineHero schedule={schedule} />
         <p className="text-xs text-muted-foreground mb-3">
-          Staged payouts: 50% · 25% · 25% — only the active stage can be claimed.
+          Staged payouts: 50% · 25% · 25% — claim adds coins to your wallet instantly. Withdrawals still need admin approval.
         </p>
         <div className="flex flex-wrap gap-3">
           {schedule.stages.map((stage) => (
@@ -302,9 +281,9 @@ export function ClaimScheduleCard({
               stage={stage}
               onClaim={submit}
               isSubmitting={claimMutation.isPending}
-              walletAddress={wallet}
-              onWalletChange={setWallet}
-              showWalletField={!!actionableStage && actionableStage.stage === stage.stage}
+              walletAddress=""
+              onWalletChange={() => {}}
+              showWalletField={false}
             />
           ))}
         </div>

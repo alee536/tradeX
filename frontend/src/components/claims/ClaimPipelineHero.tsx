@@ -184,17 +184,8 @@ export function ClaimPipelineHero({ schedule }: { schedule: PurchaseClaimSchedul
           </p>
         ) : schedule.stages.some((s) => s.state === "available") ? (
           <p className="text-sm text-amber-300 text-center py-4">
-            Timer complete — claim your {schedule.stages.find((s) => s.can_request)?.percent}% payout below.
+            Timer complete — claim your {schedule.stages.find((s) => s.can_request)?.percent}% payout. Coins go to your wallet instantly.
           </p>
-        ) : schedule.stages.some((s) => s.state === "pending") ? (
-          <div className="text-center py-4 space-y-2">
-            <p className="text-sm text-blue-300">
-              Claim submitted — waiting for admin approval.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              No countdown while admin reviews. The next stage timer starts after approval.
-            </p>
-          </div>
         ) : (
           <p className="text-sm text-muted-foreground text-center py-4">
             Processing your claim schedule…

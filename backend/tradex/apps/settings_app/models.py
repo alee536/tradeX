@@ -33,6 +33,12 @@ class SystemSettings(models.Model):
         default='0x0000000000000000000000000000000000000000',
     )
     sponsor_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=5)
+    sponsor_access_fee_usdt = models.DecimalField(
+        max_digits=20,
+        decimal_places=8,
+        default=5,
+        help_text='One-time USDT fee for sponsor link access',
+    )
 
     # ============== Profit / Reward System (admin-controlled) ==============
     profit_enabled = models.BooleanField(
