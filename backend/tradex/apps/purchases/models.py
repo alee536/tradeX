@@ -33,7 +33,7 @@ class Purchase(models.Model):
     )
     transaction_id = models.CharField(max_length=50, unique=True)
     amount = models.DecimalField(max_digits=20, decimal_places=8)
-    txid = models.CharField(max_length=255, blank=True, null=True)
+    txid = models.CharField(max_length=255, blank=True, null=True, db_index=True)
     wallet_address = models.CharField(max_length=255, blank=True, null=True)
     screenshot = models.ImageField(upload_to='screenshots/', blank=True, null=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

@@ -4,14 +4,17 @@
 
 {% block content %}
 <div class="header">
-    <h1><i class="bi bi-bag-check"></i> Purchases</h1>
+    <h1><i class="bi bi-bag-check"></i> Purchase Requests</h1>
+    <p class="text-muted mb-0" style="font-size: 14px;">Review payment TXID, amount, wallet, and screenshot before approve/reject.</p>
 </div>
 
 <div class="row mb-4">
     <div class="col-md-12">
-        <form method="get" class="row g-3">
+        <form method="get" id="purchaseSearchForm" class="row g-3">
             <div class="col-md-6">
-                <input type="text" name="search" class="form-control" placeholder="Search by username, email, or transaction ID" value="{{ search }}">
+                <input type="text" name="search" id="purchaseSearchInput" class="form-control"
+                       placeholder="Search by username, email, internal ID, or payment TXID (live)"
+                       value="{{ search }}" autocomplete="off">
             </div>
             <div class="col-md-4">
                 <select name="status" class="form-select">
@@ -31,32 +34,64 @@
 </div>
 
 <div class="table-responsive">
-    <table class="table">
+    <table class="table table-purchases-admin">
         <thead>
             <tr>
-                <th>Transaction ID</th>
                 <th>User</th>
+                <th>Payment TXID</th>
                 <th>Amount (USDT)</th>
-                <th>Coins</th>
+                <th>Expected coins</th>
+                <th>Wallet</th>
+                <th>Screenshot</th>
+                <th>Requested</th>
                 <th>Status</th>
-                <th>Date</th>
                 <th>Actions</th>
             </tr>
         </thead>
         <tbody>
-            {% for purchase in purchases %}
+            {% for row in purchase_rows %}
+                {% with purchase=row.purchase %}
                 <tr>
                     <td>
-                        <a href="{% url 'admin_dashboard:purchase_detail' purchase.id %}" style="color: #3b82f6; text-decoration: none;">
+                        <strong>{{ purchase.user.username }}</strong><br>
+                        <small class="text-muted">{{ purchase.user.email }}</small><br>
+                        <a href="{% url 'admin_dashboard:purchase_detail' purchase.id %}" class="purchase-ref-link" title="Internal reference">
                             {{ purchase.transaction_id }}
                         </a>
                     </td>
-                    <td>
-                        <strong>{{ purchase.user.username }}</strong><br>
-                        <small style="color: #94a3b8;">{{ purchase.user.email }}</small>
+                    <td class="txid-cell">
+                        {% if row.txid_for_copy %}
+                        <span class="tx-mono" title="{{ row.txid_display }}">{{ row.txid_display|truncatechars:32 }}</span>
+                        <button type="button" class="btn-copy-mini mt-1" data-copy="{{ row.txid_for_copy }}"
+                                onclick="copyFromBtn(this)" title="Copy payment TXID">
+                            <i class="bi bi-clipboard"></i> Copy TXID
+                        </button>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
                     </td>
-                    <td>${{ purchase.amount }}</td>
-                    <td>{{ purchase.calculated_coins|floatformat:0 }}</td>
+                    <td><span class="amount-usdt">${{ purchase.amount }}</span></td>
+                    <td><span class="coins-expected">{{ row.expected_coins|floatformat:2 }}</span></td>
+                    <td>
+                        {% if row.wallet_display != '—' %}
+                        <span class="tx-mono" title="{{ row.wallet_display }}">{{ row.wallet_display|truncatechars:24 }}</span>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.has_screenshot %}
+                        <a href="{{ purchase.screenshot.url }}" target="_blank" rel="noopener noreferrer" class="screenshot-thumb-link">
+                            <img src="{{ purchase.screenshot.url }}" alt="Payment screenshot" class="screenshot-thumb">
+                        </a>
+                        {% else %}
+                        <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <small><i class="bi bi-clock-history me-1"></i>{{ purchase.created_at|date:"M d, Y" }}</small><br>
+                        <small class="text-muted">{{ purchase.created_at|date:"H:i" }}</small>
+                    </td>
                     <td>
                         {% if purchase.status == 'pending' %}
                             <span class="badge-pending">Pending</span>
@@ -66,19 +101,21 @@
                             <span class="badge-rejected">Rejected</span>
                         {% endif %}
                     </td>
-                    <td>{{ purchase.created_at|date:"M d, Y" }}</td>
                     <td>
                         <div class="btn-group btn-group-sm" role="group">
+                            <a href="{% url 'admin_dashboard:purchase_detail' purchase.id %}" class="btn btn-outline-secondary" title="View details">
+                                <i class="bi bi-eye"></i>
+                            </a>
                             {% if purchase.status == 'pending' %}
                                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#approveModal{{ purchase.id }}">
-                                    <i class="bi bi-check-circle"></i> Approve
+                                    <i class="bi bi-check-circle"></i>
                                 </button>
                                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ purchase.id }}">
-                                    <i class="bi bi-x-circle"></i> Reject
+                                    <i class="bi bi-x-circle"></i>
                                 </button>
                             {% elif purchase.status == 'approved' and not purchase.is_coins_assigned %}
                                 <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#assignModal{{ purchase.id }}">
-                                    <i class="bi bi-currency-bitcoin"></i> Assign
+                                    <i class="bi bi-currency-bitcoin"></i>
                                 </button>
                             {% elif purchase.status == 'approved' and purchase.is_coins_assigned %}
                                 <span class="badge badge-success">
@@ -88,10 +125,11 @@
                         </div>
                     </td>
                 </tr>
+                {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center py-5">
-                        <p style="color: #94a3b8;">No purchases found</p>
+                    <td colspan="9" class="text-center py-5">
+                        <p class="text-muted">No purchases found</p>
                     </td>
                 </tr>
             {% endfor %}
@@ -99,7 +137,8 @@
     </table>
 </div>
 
-{% for purchase in purchases %}
+{% for row in purchase_rows %}
+    {% with purchase=row.purchase %}
     <!-- Approve Modal -->
     <div class="modal fade" id="approveModal{{ purchase.id }}" tabindex="-1">
         <div class="modal-dialog">
@@ -109,14 +148,12 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Are you sure you want to approve this purchase?</p>
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <strong>Amount:</strong><br>${{ purchase.amount }}
-                        </div>
-                        <div class="col-6">
-                            <strong>Coins:</strong><br>{{ purchase.calculated_coins|floatformat:0 }}
-                        </div>
+                    <p>Approve payment for <strong>{{ purchase.user.username }}</strong>?</p>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6"><strong>TXID:</strong><br><code class="small">{{ row.txid_display }}</code></div>
+                        <div class="col-6"><strong>Amount:</strong><br>${{ purchase.amount }}</div>
+                        <div class="col-6"><strong>Expected coins:</strong><br>{{ row.expected_coins|floatformat:2 }}</div>
+                        <div class="col-6"><strong>Ref:</strong><br>{{ purchase.transaction_id }}</div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -164,7 +201,7 @@
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
-                    <p>Assign <strong>{{ purchase.calculated_coins|floatformat:0 }} coins</strong> to <strong>{{ purchase.user.username }}</strong>?</p>
+                    <p>Assign <strong>{{ row.expected_coins|floatformat:2 }} coins</strong> to <strong>{{ purchase.user.username }}</strong>?</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -176,9 +213,38 @@
             </div>
         </div>
     </div>
+    {% endwith %}
 {% endfor %}
 
 <style>
+    .table-purchases-admin .purchase-ref-link {
+        color: #64748b;
+        font-size: 11px;
+        text-decoration: none;
+    }
+    .table-purchases-admin .purchase-ref-link:hover {
+        color: #3b82f6;
+    }
+    .table-purchases-admin .amount-usdt {
+        color: var(--accent-color);
+        font-weight: 600;
+    }
+    .table-purchases-admin .coins-expected {
+        font-weight: 600;
+    }
+    .screenshot-thumb {
+        width: 56px;
+        height: 56px;
+        object-fit: cover;
+        border-radius: 6px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+    }
+    .screenshot-thumb-link:hover .screenshot-thumb {
+        border-color: #3b82f6;
+    }
+    .txid-cell {
+        max-width: 220px;
+    }
     .btn-group-sm .btn {
         padding: 6px 10px;
         font-size: 12px;
@@ -186,6 +252,52 @@
 </style>
 
 <script>
+(function () {
+    var form = document.getElementById('purchaseSearchForm');
+    var searchInput = document.getElementById('purchaseSearchInput');
+    var statusSelect = form && form.querySelector('select[name="status"]');
+    var debounceTimer = null;
+    var DEBOUNCE_MS = 400;
+
+    function submitSearch() {
+        if (!form) return;
+        if (typeof form.requestSubmit === 'function') {
+            form.requestSubmit();
+        } else {
+            form.submit();
+        }
+    }
+
+    function scheduleSearch() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(submitSearch, DEBOUNCE_MS);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('input', scheduleSearch);
+    }
+    if (statusSelect) {
+        statusSelect.addEventListener('change', submitSearch);
+    }
+})();
+
+function copyFromBtn(btn) {
+    var text = btn.getAttribute('data-copy');
+    if (!text) return;
+    copyText(text, btn);
+}
+
+function copyText(text, btn) {
+    navigator.clipboard.writeText(text).then(function() {
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check2"></i> Copied';
+        btn.style.color = '#86efac';
+        setTimeout(function() { btn.innerHTML = orig; btn.style.color = ''; }, 1500);
+    }).catch(function() {
+        alert('Could not copy to clipboard.');
+    });
+}
+
 document.addEventListener('submit', async function (event) {
     const form = event.target.closest('.purchase-action-form');
     if (!form) return;
