@@ -8,16 +8,15 @@ import hashlib
 import hmac
 import logging
 import secrets
-import traceback
 from datetime import timedelta
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.db import transaction
-from django.db.models import F, Q
+from django.db.models import F
 from django.utils import timezone
 
 from apps.accounts.models import SignupOtpVerification, User
+from apps.accounts.otp_email import send_otp_email
 from apps.sponsor.access import resolve_active_sponsor_by_ref
 
 logger = logging.getLogger(__name__)
@@ -97,78 +96,54 @@ def _create_user_from_payload(payload):
     )
 
 
-def _debug_print_email_config(recipient):
-    """Stdout debug for Docker logs — remove once SMTP is confirmed working."""
-    password_set = bool(getattr(settings, 'EMAIL_HOST_PASSWORD', ''))
-    print('[OTP EMAIL DEBUG] ========== send attempt ==========', flush=True)
-    print(f'[OTP EMAIL DEBUG] recipient={recipient}', flush=True)
-    print(f'[OTP EMAIL DEBUG] EMAIL_BACKEND={settings.EMAIL_BACKEND}', flush=True)
-    print(f'[OTP EMAIL DEBUG] EMAIL_HOST={settings.EMAIL_HOST}', flush=True)
-    print(f'[OTP EMAIL DEBUG] EMAIL_PORT={settings.EMAIL_PORT}', flush=True)
-    print(f'[OTP EMAIL DEBUG] EMAIL_USE_TLS={settings.EMAIL_USE_TLS}', flush=True)
-    print(f'[OTP EMAIL DEBUG] EMAIL_USE_SSL={settings.EMAIL_USE_SSL}', flush=True)
-    print(f'[OTP EMAIL DEBUG] EMAIL_HOST_USER={settings.EMAIL_HOST_USER!r}', flush=True)
-    print(
-        f'[OTP EMAIL DEBUG] EMAIL_HOST_PASSWORD set={password_set} '
-        f'(len={len(settings.EMAIL_HOST_PASSWORD or "")})',
-        flush=True,
-    )
-    print(f'[OTP EMAIL DEBUG] DEFAULT_FROM_EMAIL={settings.DEFAULT_FROM_EMAIL!r}', flush=True)
-    print(f'[OTP EMAIL DEBUG] DEBUG mode={settings.DEBUG}', flush=True)
-
-
-def _send_otp_email(email, otp_code):
-    from_email = settings.DEFAULT_FROM_EMAIL
-    subject = 'Your 24TRADEX verification code'
+def _send_signup_otp_email(email, otp_code):
     expiry = _otp_settings()['expiry_minutes']
-    message = (
+    body = (
         f'Your verification code is: {otp_code}\n\n'
         f'This code expires in {expiry} minutes.\n'
         'If you did not request this, you can ignore this email.\n\n'
         '— 24TRADEX'
     )
-
-    _debug_print_email_config(email)
-
-    is_console = 'console' in (settings.EMAIL_BACKEND or '')
-    if settings.DEBUG or is_console:
-        print(f'[OTP EMAIL DEBUG] OTP code (dev/console only): {otp_code}', flush=True)
-
-    print(
-        f'[OTP EMAIL DEBUG] calling send_mail subject={subject!r} from={from_email!r}',
-        flush=True,
-    )
-
     try:
-        sent_count = send_mail(
-            subject,
-            message,
-            from_email,
-            [email],
-            fail_silently=False,
+        send_otp_email(
+            email,
+            otp_code,
+            'Your 24TRADEX verification code',
+            body,
+            flow_label='Signup OTP',
         )
-        print(
-            f'[OTP EMAIL DEBUG] send_mail OK — messages sent: {sent_count}',
-            flush=True,
-        )
-        if is_console:
-            print(
-                '[OTP EMAIL DEBUG] NOTE: console backend prints email above; '
-                'no real SMTP delivery. Set EMAIL_BACKEND=smtp in backend/.env',
-                flush=True,
-            )
     except Exception as exc:
-        print(
-            f'[OTP EMAIL DEBUG] send_mail FAILED: {type(exc).__name__}: {exc}',
-            flush=True,
-        )
-        traceback.print_exc()
-        logger.exception('Failed to send signup OTP to %s', email)
         raise SignupOtpError(
-            f'Unable to send verification email: {exc}',
+            'Unable to send verification email. Please try again later.',
             code='email_send_failed',
             http_status=503,
         ) from exc
+
+
+def _enforce_signup_otp_request_throttle(email):
+    """
+    Minimum interval between signup OTP emails for one address.
+
+    Aligns with resend cooldown so initial request cannot bypass resend limits.
+    """
+    cfg = _otp_settings()
+    last = (
+        SignupOtpVerification.objects.filter(email=email)
+        .order_by('-last_sent_at')
+        .only('last_sent_at')
+        .first()
+    )
+    if not last or not last.last_sent_at:
+        return
+
+    elapsed = (timezone.now() - last.last_sent_at).total_seconds()
+    if elapsed < cfg['resend_cooldown_seconds']:
+        wait = int(cfg['resend_cooldown_seconds'] - elapsed)
+        raise SignupOtpError(
+            f'Please wait {wait} seconds before requesting another code.',
+            code='request_throttled',
+            http_status=429,
+        )
 
 
 def _get_active_pending(email):
@@ -185,15 +160,6 @@ def _get_active_pending(email):
     )
 
 
-def _purge_stale_for_email(email):
-    """Remove expired or superseded pending rows for one email."""
-    now = timezone.now()
-    SignupOtpVerification.objects.filter(
-        email=email,
-        verified_at__isnull=True,
-    ).filter(Q(expires_at__lte=now) | Q(expires_at__gt=now)).delete()
-
-
 @transaction.atomic
 def request_signup_otp(validated_data):
     """
@@ -203,6 +169,8 @@ def request_signup_otp(validated_data):
     """
     email = _normalize_email(validated_data['email'])
     cfg = _otp_settings()
+
+    _enforce_signup_otp_request_throttle(email)
 
     if User.objects.filter(email=email).exists():
         raise SignupOtpError(
@@ -226,8 +194,7 @@ def request_signup_otp(validated_data):
         last_sent_at=now,
     )
 
-    print(f'[OTP EMAIL DEBUG] request_signup_otp for email={email}', flush=True)
-    _send_otp_email(email, otp_code)
+    _send_signup_otp_email(email, otp_code)
 
     return {
         'message': 'Verification code sent to your email.',
@@ -272,8 +239,7 @@ def resend_signup_otp(email):
         update_fields=['otp_hash', 'attempts', 'expires_at', 'last_sent_at']
     )
 
-    print(f'[OTP EMAIL DEBUG] resend_signup_otp for email={email}', flush=True)
-    _send_otp_email(email, otp_code)
+    _send_signup_otp_email(email, otp_code)
 
     return {
         'message': 'A new verification code has been sent.',

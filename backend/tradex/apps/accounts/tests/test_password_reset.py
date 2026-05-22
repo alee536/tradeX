@@ -55,6 +55,7 @@ class PasswordResetServiceTests(TestCase):
         self.assertEqual(len(mail.outbox), 0)
         self.assertFalse(PasswordResetOtp.objects.filter(email=self.unknown_email).exists())
 
+    @override_settings(PASSWORD_RESET_OTP_RESEND_COOLDOWN_SECONDS=0)
     @patch('apps.accounts.password_reset._generate_otp_code', return_value='445566')
     def test_old_token_invalidated_on_new_request(self, _mock):
         request_password_reset(self.user.email)
@@ -100,6 +101,60 @@ class PasswordResetServiceTests(TestCase):
         ).first()
         self.assertEqual(record.attempts, 1)
 
+    @patch('apps.accounts.password_reset._generate_otp_code', return_value='101010')
+    def test_invalid_otp_hits_max_attempts_limit(self, _mock):
+        request_password_reset(self.user.email)
+        for _ in range(5):
+            with self.assertRaises(PasswordResetError) as ctx:
+                confirm_password_reset('reset_test@example.com', '000000', 'NewSecurePass99!')
+            self.assertEqual(ctx.exception.code, 'invalid_otp')
+        with self.assertRaises(PasswordResetError) as ctx:
+            confirm_password_reset('reset_test@example.com', '000000', 'NewSecurePass99!')
+        self.assertEqual(ctx.exception.code, 'too_many_attempts')
+        record = PasswordResetOtp.objects.filter(
+            email='reset_test@example.com',
+            used_at__isnull=True,
+        ).first()
+        self.assertEqual(record.attempts, 5)
+
+    @patch('apps.accounts.password_reset._generate_otp_code', return_value='778899')
+    def test_weak_password_rejected(self, _mock):
+        request_password_reset(self.user.email)
+        with self.assertRaises(PasswordResetError) as ctx:
+            confirm_password_reset('reset_test@example.com', '778899', '123')
+        self.assertEqual(ctx.exception.code, 'weak_password')
+
+    def test_banned_user_no_reset_email(self):
+        self.user.is_banned = True
+        self.user.save(update_fields=['is_banned'])
+        result = request_password_reset(self.user.email)
+        self.assertIn('verification code', result['message'].lower())
+        self.assertEqual(len(mail.outbox), 0)
+
+    @patch('apps.accounts.password_reset._generate_otp_code', return_value='909090')
+    def test_banned_user_cannot_confirm_reset(self, _mock):
+        request_password_reset(self.user.email)
+        self.user.is_banned = True
+        self.user.save(update_fields=['is_banned'])
+        with self.assertRaises(PasswordResetError) as ctx:
+            confirm_password_reset('reset_test@example.com', '909090', 'NewSecurePass99!')
+        self.assertEqual(ctx.exception.code, 'account_disabled')
+
+    def test_inactive_user_gets_generic_response_no_mail(self):
+        self.user.is_active = False
+        self.user.save(update_fields=['is_active'])
+        result = request_password_reset(self.user.email)
+        self.assertIn('verification code', result['message'].lower())
+        self.assertEqual(len(mail.outbox), 0)
+
+    @patch('apps.accounts.password_reset._generate_otp_code', return_value='112233')
+    def test_request_throttled_returns_generic_no_extra_mail(self, _mock):
+        request_password_reset(self.user.email)
+        mail.outbox.clear()
+        result = request_password_reset(self.user.email)
+        self.assertIn('verification code', result['message'].lower())
+        self.assertEqual(len(mail.outbox), 0)
+
     @patch('apps.accounts.password_reset._generate_otp_code', return_value='202020')
     def test_expired_otp_rejected(self, _mock):
         request_password_reset(self.user.email)
@@ -109,6 +164,14 @@ class PasswordResetServiceTests(TestCase):
         with self.assertRaises(PasswordResetError) as ctx:
             confirm_password_reset('reset_test@example.com', '202020', 'NewSecurePass99!')
         self.assertEqual(ctx.exception.code, 'otp_expired')
+
+    @patch('apps.accounts.password_reset._generate_otp_code', return_value='606060')
+    def test_resend_within_cooldown_raises(self, _mock):
+        request_password_reset(self.user.email)
+        with self.assertRaises(PasswordResetError) as ctx:
+            resend_password_reset_otp(self.user.email)
+        self.assertEqual(ctx.exception.code, 'resend_cooldown')
+        self.assertEqual(ctx.exception.http_status, 429)
 
     @patch('apps.accounts.password_reset._generate_otp_code')
     def test_resend_after_cooldown(self, mock_gen):
@@ -178,3 +241,13 @@ class PasswordResetApiTests(TestCase):
         )
         self.assertEqual(r.status_code, 200)
         self.assertIn('message', r.data)
+
+    def test_resend_unknown_email_returns_200_generic(self):
+        r = self.client.post(
+            '/api/auth/forgot-password/resend',
+            {'email': 'missing@example.com'},
+            format='json',
+        )
+        self.assertEqual(r.status_code, 200)
+        self.assertIn('message', r.data)
+

@@ -15,12 +15,12 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import F
 from django.utils import timezone
 
 from apps.accounts.models import PasswordResetOtp, User
+from apps.accounts.otp_email import send_otp_email
 
 logger = logging.getLogger(__name__)
 
@@ -82,31 +82,41 @@ def _validate_new_password(password, user):
 
 def _send_reset_otp_email(email, otp_code):
     cfg = _reset_settings()
-    subject = '24TRADEX password reset code'
-    message = (
+    body = (
         f'Your password reset code is: {otp_code}\n\n'
         f'This code expires in {cfg["expiry_minutes"]} minutes.\n'
         'If you did not request a password reset, ignore this email.\n\n'
         '— 24TRADEX'
     )
-    from_email = settings.DEFAULT_FROM_EMAIL
-
-    is_console = 'console' in (settings.EMAIL_BACKEND or '')
-    if settings.DEBUG or is_console:
-        print(
-            f'[PASSWORD RESET DEBUG] OTP for {email} (console/dev): {otp_code}',
-            flush=True,
-        )
-
     try:
-        send_mail(subject, message, from_email, [email], fail_silently=False)
+        send_otp_email(
+            email,
+            otp_code,
+            '24TRADEX password reset code',
+            body,
+            flow_label='Password reset',
+        )
     except Exception as exc:
-        logger.exception('Password reset email failed for %s', email)
         raise PasswordResetError(
             'Unable to send reset email. Please try again later.',
             code='email_send_failed',
             http_status=503,
         ) from exc
+
+
+def _is_password_reset_request_throttled(email):
+    """Per-email cooldown on initial reset requests (reduces email abuse)."""
+    cfg = _reset_settings()
+    last = (
+        PasswordResetOtp.objects.filter(email=email)
+        .order_by('-last_sent_at')
+        .only('last_sent_at')
+        .first()
+    )
+    if not last or not last.last_sent_at:
+        return False
+    elapsed = (timezone.now() - last.last_sent_at).total_seconds()
+    return elapsed < cfg['resend_cooldown_seconds']
 
 
 def _get_user_for_reset(email):
@@ -153,6 +163,13 @@ def request_password_reset(email):
 
     if user is None:
         logger.info('Password reset requested for unknown/inactive email=%s', email)
+        return {
+            'message': GENERIC_REQUEST_MESSAGE,
+            'email': email,
+        }
+
+    if _is_password_reset_request_throttled(email):
+        logger.info('Password reset request throttled for email=%s', email)
         return {
             'message': GENERIC_REQUEST_MESSAGE,
             'email': email,

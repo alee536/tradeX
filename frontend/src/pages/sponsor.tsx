@@ -122,7 +122,7 @@ export default function Sponsor() {
   const canRequest = stats?.can_request ?? false;
   const fee = stats?.access_fee_usdt ?? liveSettings?.sponsor_access_fee_usdt ?? 5;
   const sponsorPaymentWallet =
-    (stats as { sponsor_payment_wallet?: string } | undefined)?.sponsor_payment_wallet
+    stats?.sponsor_payment_wallet
     ?? liveSettings?.sponsor_payment_wallet_address
     ?? "";
   const publicLink = stats?.sponsor_link;

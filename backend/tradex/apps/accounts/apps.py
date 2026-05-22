@@ -1,4 +1,8 @@
+import logging
+
 from django.apps import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class AccountsConfig(AppConfig):
@@ -6,24 +10,8 @@ class AccountsConfig(AppConfig):
     name = 'apps.accounts'
 
     def ready(self):
-        # Startup email config (Docker logs) — helps debug OTP delivery
         from django.conf import settings
 
-        backend = getattr(settings, 'EMAIL_BACKEND', '')
-        print('[OTP EMAIL DEBUG] Django started — email settings:', flush=True)
-        print(f'[OTP EMAIL DEBUG]   EMAIL_BACKEND={backend}', flush=True)
-        print(f'[OTP EMAIL DEBUG]   EMAIL_HOST={getattr(settings, "EMAIL_HOST", "")}', flush=True)
-        print(
-            f'[OTP EMAIL DEBUG]   EMAIL_HOST_USER={getattr(settings, "EMAIL_HOST_USER", "")!r}',
-            flush=True,
-        )
-        print(
-            f'[OTP EMAIL DEBUG]   password set={bool(getattr(settings, "EMAIL_HOST_PASSWORD", ""))}',
-            flush=True,
-        )
-        if 'console' in backend:
-            print(
-                '[OTP EMAIL DEBUG]   WARNING: console backend — emails go to logs only, '
-                'not inbox. Use smtp + backend/.env for real delivery.',
-                flush=True,
-            )
+        from apps.accounts.otp_email import log_email_backend_status
+
+        log_email_backend_status('Accounts')

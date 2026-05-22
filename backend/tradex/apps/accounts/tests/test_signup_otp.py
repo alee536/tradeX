@@ -96,6 +96,27 @@ class SignupOtpServiceTests(TestCase):
             resend_signup_otp('otp_test@example.com')
         self.assertEqual(ctx.exception.code, 'resend_cooldown')
 
+    @patch('apps.accounts.signup_otp._generate_otp_code', return_value='111111')
+    def test_invalid_otp_hits_max_attempts(self, _mock_gen):
+        request_signup_otp(self.payload)
+        for _ in range(5):
+            with self.assertRaises(SignupOtpError) as ctx:
+                verify_signup_otp('otp_test@example.com', '999999')
+            self.assertEqual(ctx.exception.code, 'invalid_otp')
+        with self.assertRaises(SignupOtpError) as ctx:
+            verify_signup_otp('otp_test@example.com', '999999')
+        self.assertEqual(ctx.exception.code, 'too_many_attempts')
+        record = SignupOtpVerification.objects.get(email='otp_test@example.com')
+        self.assertEqual(record.attempts, 5)
+
+    @patch('apps.accounts.signup_otp._generate_otp_code', return_value='121212')
+    def test_request_throttled_within_cooldown(self, _mock_gen):
+        request_signup_otp(self.payload)
+        with self.assertRaises(SignupOtpError) as ctx:
+            request_signup_otp(self.payload)
+        self.assertEqual(ctx.exception.code, 'request_throttled')
+        self.assertEqual(ctx.exception.http_status, 429)
+
     @patch('apps.accounts.signup_otp._generate_otp_code')
     def test_resend_after_cooldown_sends_new_code(self, mock_gen):
         mock_gen.side_effect = ['444444', '555555']
@@ -156,3 +177,29 @@ class SignupOtpApiTests(TestCase):
         )
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data['code'], 'invalid_otp')
+
+    @override_settings(SIGNUP_OTP_RESEND_COOLDOWN_SECONDS=0)
+    @patch('apps.accounts.signup_otp._generate_otp_code', return_value='123456')
+    def test_register_resend_otp_endpoint_succeeds(self, _mock_gen):
+        mail.outbox.clear()
+        self.client.post('/api/auth/register/request-otp', self.signup_body, format='json')
+        mail.outbox.clear()
+        response = self.client.post(
+            '/api/auth/register/resend-otp',
+            {'email': 'api_otp@example.com'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('123456', mail.outbox[0].body)
+
+    @patch('apps.accounts.signup_otp._generate_otp_code', return_value='424242')
+    def test_register_verify_rejects_invalid_otp_format(self, _mock_gen):
+        self.client.post('/api/auth/register/request-otp', self.signup_body, format='json')
+        response = self.client.post(
+            '/api/auth/register/verify',
+            {'email': 'api_otp@example.com', 'otp': 'abc'},
+            format='json',
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('otp', response.data)

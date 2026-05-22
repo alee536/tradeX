@@ -280,6 +280,7 @@ export interface SponsorStats {
   sponsor_ref_slug?: string | null;
   sponsor_public_path?: string | null;
   access_fee_usdt?: number;
+  sponsor_payment_wallet?: string;
   can_request?: boolean;
   pending_request?: SponsorAccessRequestSummary | null;
 }
