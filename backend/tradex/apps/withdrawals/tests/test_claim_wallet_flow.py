@@ -23,6 +23,7 @@ class ClaimWalletFlowTests(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.settings = SystemSettings.get_settings()
+        cls.settings.profit_enabled = False
         cls.settings.stage1_hours = 0
         cls.settings.stage2_hours = 0
         cls.settings.stage3_hours = 0

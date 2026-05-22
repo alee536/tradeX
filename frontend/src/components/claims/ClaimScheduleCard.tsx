@@ -261,9 +261,21 @@ export function ClaimScheduleCard({
               Purchase{" "}
               <span className="font-mono text-cyan-300">
                 {schedule.transaction_id}
-              </span>{" "}
-              · {formatCrypto(schedule.total_coins)} (
-              {formatCurrency(schedule.total_usdt)})
+              </span>
+              {(schedule as { profit_enabled?: boolean; base_usdt?: number; profit_percentage?: number }).profit_enabled ? (
+                <>
+                  {" "}
+                  · {formatCurrency((schedule as { base_usdt?: number }).base_usdt ?? 0)} +{" "}
+                  {(schedule as { profit_percentage?: number }).profit_percentage ?? 0}% ={" "}
+                  {formatCurrency(schedule.total_usdt)}
+                </>
+              ) : (
+                <>
+                  {" "}
+                  · {formatCrypto(schedule.total_coins)} (
+                  {formatCurrency(schedule.total_usdt)})
+                </>
+              )}
             </p>
           </div>
         </CardTitle>
@@ -271,7 +283,7 @@ export function ClaimScheduleCard({
       <CardContent>
         <ClaimPipelineHero schedule={schedule} />
         <p className="text-xs text-muted-foreground mb-3">
-          Staged payouts: 50% · 25% · 25% — claim adds coins to your wallet instantly. Withdrawals still need admin approval.
+          Total includes admin profit on your deposit. Staged payouts: 50% after 72h, then 25% + 25% (24h each) — instant wallet credit. Withdrawals still need admin approval.
         </p>
         <div className="flex flex-wrap gap-3">
           {schedule.stages.map((stage) => (
