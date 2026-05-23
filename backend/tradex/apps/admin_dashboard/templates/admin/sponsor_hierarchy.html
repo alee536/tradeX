@@ -4,56 +4,174 @@
 
 {% block extra_css %}
 <style>
+    .hierarchy-page-header {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .hierarchy-page-header h1 {
+        margin: 0;
+        font-size: 1.75rem;
+        background: linear-gradient(135deg, #f8fafc 0%, #60a5fa 55%, #22d3ee 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+    }
+
+    .hierarchy-panel {
+        background: linear-gradient(145deg, rgba(30, 41, 59, 0.85), rgba(15, 23, 42, 0.95));
+        border: 1px solid rgba(96, 165, 250, 0.25);
+        border-radius: 16px;
+        padding: 1.25rem 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+        backdrop-filter: blur(12px);
+        animation: panelFadeIn 0.5s ease-out;
+    }
+
+    @keyframes panelFadeIn {
+        from { opacity: 0; transform: translateY(12px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
     .hierarchy-toolbar {
         display: flex;
-        gap: 10px;
-        align-items: center;
+        gap: 12px;
+        align-items: stretch;
         flex-wrap: wrap;
-        margin-bottom: 20px;
     }
 
     .hierarchy-search-wrap {
         position: relative;
-        min-width: 320px;
+        min-width: 280px;
         flex: 1;
-        max-width: 560px;
+        max-width: 520px;
+    }
+
+    .hierarchy-search-wrap .search-icon {
+        position: absolute;
+        left: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #64748b;
+        pointer-events: none;
+        font-size: 1rem;
+        z-index: 2;
+    }
+
+    .hierarchy-search-wrap .form-control {
+        padding-left: 2.5rem;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.8);
+        border-color: rgba(71, 85, 105, 0.6);
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .hierarchy-search-wrap .form-control:focus {
+        border-color: rgba(59, 130, 246, 0.8);
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
     }
 
     .hierarchy-search-results {
         position: absolute;
-        inset: calc(100% + 6px) 0 auto 0;
+        inset: calc(100% + 8px) 0 auto 0;
         background: rgba(15, 23, 42, 0.98);
-        border: 1px solid var(--border-color);
-        border-radius: 10px;
-        box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(96, 165, 250, 0.3);
+        border-radius: 12px;
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
         z-index: 60;
         max-height: 280px;
         overflow-y: auto;
         display: none;
+        animation: dropdownIn 0.2s ease-out;
+    }
+
+    @keyframes dropdownIn {
+        from { opacity: 0; transform: translateY(-6px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 
     .hierarchy-search-item {
-        padding: 10px 12px;
-        border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        padding: 12px 14px;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
         cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: background 0.15s;
     }
 
-    .hierarchy-search-item:last-child {
-        border-bottom: none;
-    }
+    .hierarchy-search-item:last-child { border-bottom: none; }
 
     .hierarchy-search-item:hover {
-        background: rgba(59, 130, 246, 0.15);
+        background: rgba(59, 130, 246, 0.18);
+    }
+
+    .hierarchy-search-item i {
+        color: #60a5fa;
+        font-size: 1.1rem;
+    }
+
+    .hierarchy-hint {
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-top: 14px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.2);
+        color: #94a3b8;
+        font-size: 12px;
+        line-height: 1.5;
+    }
+
+    .hierarchy-hint i {
+        color: #38bdf8;
+        margin-top: 2px;
+        flex-shrink: 0;
+    }
+
+    .tree-stage {
+        position: relative;
+        border-radius: 20px;
+        border: 1px solid rgba(71, 85, 105, 0.45);
+        background:
+            radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.12), transparent 45%),
+            radial-gradient(circle at 80% 90%, rgba(34, 211, 238, 0.08), transparent 40%),
+            rgba(15, 23, 42, 0.6);
+        overflow: hidden;
+        min-height: 420px;
+        animation: panelFadeIn 0.6s ease-out 0.1s both;
+    }
+
+    .tree-stage::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+        background-size: 28px 28px;
+        pointer-events: none;
     }
 
     .tree-scroll {
-        overflow-x: auto;
-        padding-bottom: 12px;
+        overflow: auto;
+        padding: 2rem 1.5rem 2.5rem;
+        position: relative;
+        z-index: 1;
     }
 
     .tree-canvas {
         min-width: max-content;
-        padding: 8px 8px 22px;
+        display: flex;
+        justify-content: center;
+        padding: 0.5rem;
     }
 
     .tree-branch {
@@ -64,53 +182,212 @@
     }
 
     .node-card {
-        width: 180px;
-        background: linear-gradient(180deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
-        border: 1px solid rgba(71, 85, 105, 0.75);
-        border-radius: 12px;
-        padding: 10px;
-        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
-        transition: transform 0.18s ease, border-color 0.18s ease;
+        width: 220px;
+        background: linear-gradient(160deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.98));
+        border: 1px solid rgba(100, 116, 139, 0.5);
+        border-radius: 16px;
+        padding: 14px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+        transition: transform 0.25s cubic-bezier(0.34, 1.4, 0.64, 1),
+                    border-color 0.25s,
+                    box-shadow 0.25s;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .node-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #3b82f6, #22d3ee);
+        opacity: 0.6;
+        transition: opacity 0.25s;
     }
 
     .node-card:hover {
-        transform: scale(1.02);
+        transform: translateY(-4px) scale(1.02);
+        border-color: rgba(96, 165, 250, 0.65);
+        box-shadow: 0 20px 40px rgba(37, 99, 235, 0.25);
+    }
+
+    .node-card:hover::before { opacity: 1; }
+
+    .node-card--root {
+        border-color: rgba(56, 189, 248, 0.55);
+        box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2), 0 16px 40px rgba(14, 165, 233, 0.2);
+        animation: rootPulse 3s ease-in-out infinite;
+    }
+
+    .node-card--root::before {
+        opacity: 1;
+        height: 4px;
+        background: linear-gradient(90deg, #22d3ee, #3b82f6, #a78bfa);
+    }
+
+    @keyframes rootPulse {
+        0%, 100% { box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.2), 0 16px 40px rgba(14, 165, 233, 0.15); }
+        50% { box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.35), 0 20px 48px rgba(14, 165, 233, 0.28); }
+    }
+
+    .node-card--expanded {
         border-color: rgba(59, 130, 246, 0.75);
     }
 
-    .node-card--active {
-        border-color: rgba(59, 130, 246, 0.95);
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.28);
+    .node-header {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin-bottom: 12px;
     }
+
+    .node-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        color: #e0f2fe;
+        background: linear-gradient(135deg, #2563eb, #0891b2);
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+        flex-shrink: 0;
+    }
+
+    .node-card--root .node-avatar {
+        background: linear-gradient(135deg, #0891b2, #7c3aed);
+        animation: avatarShine 2.5s ease-in-out infinite;
+    }
+
+    @keyframes avatarShine {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.15); }
+    }
+
+    .node-meta { flex: 1; min-width: 0; }
 
     .node-title {
         margin: 0;
         color: #f8fafc;
         font-weight: 700;
-        font-size: 14px;
-        line-height: 1.25;
+        font-size: 15px;
+        line-height: 1.3;
         word-break: break-word;
     }
 
-    .node-id {
-        margin: 3px 0 10px;
-        color: #60a5fa;
+    .node-username {
+        margin: 2px 0 0;
+        color: #94a3b8;
         font-size: 11px;
+    }
+
+    .node-id {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 6px;
+        padding: 2px 8px;
+        border-radius: 6px;
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+        font-size: 10px;
         font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
     }
 
-    .node-footer {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
+    .node-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
         gap: 6px;
+        margin-bottom: 12px;
+    }
+
+    .node-stat {
+        text-align: center;
+        padding: 6px 4px;
+        border-radius: 8px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(71, 85, 105, 0.4);
+    }
+
+    .node-stat i {
+        display: block;
+        font-size: 12px;
+        color: #60a5fa;
+        margin-bottom: 2px;
+    }
+
+    .node-stat span {
+        display: block;
+        font-size: 11px;
+        font-weight: 700;
+        color: #e2e8f0;
+    }
+
+    .node-stat small {
+        font-size: 9px;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+
+    .node-footer { display: flex; justify-content: center; }
+
+    .node-toggle-btn {
+        width: 100%;
+        border-radius: 10px !important;
+        font-weight: 600;
+        font-size: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .node-toggle-btn:not(:disabled):hover {
+        transform: scale(1.03);
+        box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+    }
+
+    .node-toggle-btn.is-loading {
+        pointer-events: none;
+        opacity: 0.85;
+    }
+
+    .node-toggle-btn.is-loading .btn-spinner {
+        display: inline-block;
+        animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .node-state {
+        margin-top: 8px;
+        color: #94a3b8;
+        font-size: 11px;
+        text-align: center;
+        min-height: 16px;
     }
 
     .node-children {
-        margin-top: 18px;
-        padding-top: 14px;
+        margin-top: 20px;
+        padding-top: 16px;
         position: relative;
         display: none;
+        opacity: 0;
+        transform: translateY(-8px);
+        transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+
+    .node-children.is-visible {
+        display: block;
+        opacity: 1;
+        transform: translateY(0);
     }
 
     .node-children::before {
@@ -119,8 +396,8 @@
         top: 0;
         left: 50%;
         width: 2px;
-        height: 14px;
-        background: rgba(71, 85, 105, 0.9);
+        height: 16px;
+        background: linear-gradient(180deg, rgba(96, 165, 250, 0.8), rgba(96, 165, 250, 0.2));
         transform: translateX(-50%);
     }
 
@@ -129,70 +406,102 @@
         display: flex;
         justify-content: center;
         align-items: flex-start;
-        gap: 14px;
+        gap: 20px;
         width: max-content;
         min-width: 100%;
-        padding-top: 14px;
+        padding-top: 16px;
     }
 
     .children-row::before {
         content: '';
         position: absolute;
         top: 0;
-        left: 14px;
-        right: 14px;
+        left: 20px;
+        right: 20px;
         height: 2px;
-        background: rgba(71, 85, 105, 0.9);
+        background: linear-gradient(90deg, transparent, rgba(96, 165, 250, 0.5), transparent);
     }
 
     .children-row .tree-branch::before {
         content: '';
         position: absolute;
-        top: -14px;
+        top: -16px;
         left: 50%;
         width: 2px;
-        height: 14px;
-        background: rgba(71, 85, 105, 0.9);
+        height: 16px;
+        background: linear-gradient(180deg, rgba(96, 165, 250, 0.5), rgba(96, 165, 250, 0.15));
         transform: translateX(-50%);
     }
 
-    .node-state {
-        margin-top: 8px;
-        color: #94a3b8;
-        font-size: 11px;
-        text-align: center;
+    .children-row .tree-branch {
+        animation: branchIn 0.4s ease-out both;
+    }
+
+    .children-row .tree-branch:nth-child(1) { animation-delay: 0.05s; }
+    .children-row .tree-branch:nth-child(2) { animation-delay: 0.1s; }
+    .children-row .tree-branch:nth-child(3) { animation-delay: 0.15s; }
+    .children-row .tree-branch:nth-child(4) { animation-delay: 0.2s; }
+    .children-row .tree-branch:nth-child(n+5) { animation-delay: 0.25s; }
+
+    @keyframes branchIn {
+        from {
+            opacity: 0;
+            transform: translateY(16px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+
+    .btn-toolbar-action {
+        border-radius: 12px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 0.5rem 1rem;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="header">
-    <h1><i class="bi bi-diagram-3"></i> Sponsor Hierarchy</h1>
-    <a href="{% url 'admin_dashboard:sponsor_users' %}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back to Sponsors
+<div class="hierarchy-page-header">
+    <h1><i class="bi bi-diagram-3-fill"></i> Sponsor Hierarchy</h1>
+    <a href="{% url 'admin_dashboard:sponsor_users' %}" class="btn btn-outline-secondary btn-toolbar-action">
+        <i class="bi bi-arrow-left-circle"></i> Back to Sponsors
     </a>
 </div>
 
-<div class="stat-card mb-4">
+<div class="hierarchy-panel">
     <div class="hierarchy-toolbar">
         <div class="hierarchy-search-wrap">
-            <input id="hierarchySearchInput" class="form-control" placeholder="Search sponsor by username, unique ID, email" autocomplete="off">
+            <i class="bi bi-search search-icon"></i>
+            <input id="hierarchySearchInput" class="form-control"
+                   placeholder="Search sponsor by name, username, ID, or email"
+                   autocomplete="off">
             <div id="hierarchySearchResults" class="hierarchy-search-results"></div>
         </div>
-        <button class="btn btn-primary" type="button" id="hierarchySearchBtn">
-            <i class="bi bi-search"></i> Open Hierarchy
+        <button class="btn btn-primary btn-toolbar-action" type="button" id="hierarchySearchBtn">
+            <i class="bi bi-box-arrow-in-right"></i> Open Hierarchy
         </button>
-        <button class="btn btn-outline-secondary" type="button" id="collapseAllBtn">
+        <button class="btn btn-outline-secondary btn-toolbar-action" type="button" id="collapseAllBtn">
             <i class="bi bi-arrows-collapse"></i> Collapse All
         </button>
     </div>
-    <div style="color:#94a3b8; font-size:12px;">
-        Performance mode enabled: page sirf selected root load karti hai. Har node ke children expand par lazy fetch hote hain.
+    <div class="hierarchy-hint">
+        <i class="bi bi-lightning-charge-fill"></i>
+        <span>
+            Performance mode: only the selected root loads first. Child nodes are fetched on expand —
+            large trees stay fast.
+        </span>
     </div>
 </div>
 
-<div class="tree-scroll">
-    <div class="tree-canvas" id="treeCanvas"></div>
+<div class="tree-stage">
+    <div class="tree-scroll">
+        <div class="tree-canvas" id="treeCanvas"></div>
+    </div>
 </div>
 {% endblock %}
 
@@ -212,18 +521,65 @@
 
     let selectedSearchId = null;
 
+    function escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function displayName(node) {
+        const name = (node.full_name || '').trim();
+        return name || node.username;
+    }
+
+    function formatCoins(value) {
+        const num = parseFloat(value || 0);
+        if (Number.isNaN(num)) return '0';
+        return num >= 1000 ? (num / 1000).toFixed(1) + 'k' : num.toFixed(num % 1 === 0 ? 0 : 2);
+    }
+
     function buildNodeCard(node, isRoot) {
         const card = document.createElement('div');
-        card.className = 'node-card' + (isRoot ? ' node-card--active' : '');
+        card.className = 'node-card' + (isRoot ? ' node-card--root' : '');
 
-        const buttonDisabled = !node.has_children ? 'disabled' : '';
-        const buttonText = node.has_children ? 'Expand' : 'No Children';
+        const hasChildren = !!node.has_children;
+        const buttonDisabled = hasChildren ? '' : 'disabled';
+        const buttonIcon = hasChildren ? 'bi-chevron-down' : 'bi-dash-circle';
+        const buttonText = hasChildren ? 'Expand network' : 'No referrals';
 
         card.innerHTML = `
-            <h3 class="node-title">${node.username}</h3>
-            <div class="node-id">${node.unique_id || '-'}</div>
+            <div class="node-header">
+                <div class="node-avatar"><i class="bi bi-person-badge-fill"></i></div>
+                <div class="node-meta">
+                    <h3 class="node-title">${escapeHtml(displayName(node))}</h3>
+                    <p class="node-username">@${escapeHtml(node.username)}</p>
+                    <span class="node-id"><i class="bi bi-fingerprint"></i> ${escapeHtml(node.unique_id || '-')}</span>
+                </div>
+            </div>
+            <div class="node-stats">
+                <div class="node-stat" title="Direct referrals">
+                    <i class="bi bi-people-fill"></i>
+                    <span>${node.child_count || 0}</span>
+                    <small>Refs</small>
+                </div>
+                <div class="node-stat" title="Approved purchases">
+                    <i class="bi bi-bag-check-fill"></i>
+                    <span>${node.total_purchases || 0}</span>
+                    <small>Orders</small>
+                </div>
+                <div class="node-stat" title="Coins purchased">
+                    <i class="bi bi-coin"></i>
+                    <span>${formatCoins(node.total_coins)}</span>
+                    <small>Coins</small>
+                </div>
+            </div>
             <div class="node-footer">
-                <button class="btn btn-sm btn-primary node-toggle-btn" ${buttonDisabled}>${buttonText}</button>
+                <button type="button" class="btn btn-sm btn-primary node-toggle-btn" ${buttonDisabled}>
+                    <i class="bi ${buttonIcon}"></i>
+                    <span class="btn-label">${buttonText}</span>
+                </button>
             </div>
             <div class="node-state"></div>
         `;
@@ -248,9 +604,9 @@
         const toggleBtn = card.querySelector('.node-toggle-btn');
         const nodeState = card.querySelector('.node-state');
 
-        if (toggleBtn) {
-            toggleBtn.addEventListener('click', async function () {
-                await toggleBranch(branch, toggleBtn, nodeState);
+        if (toggleBtn && node.has_children) {
+            toggleBtn.addEventListener('click', function () {
+                toggleBranch(branch, toggleBtn, nodeState, card);
             });
         }
 
@@ -271,7 +627,7 @@
         if (!children.length) {
             const noChild = document.createElement('div');
             noChild.className = 'node-state';
-            noChild.textContent = 'No child users';
+            noChild.innerHTML = '<i class="bi bi-inbox"></i> No child users';
             childrenWrap.appendChild(noChild);
             return;
         }
@@ -279,40 +635,56 @@
         const row = document.createElement('div');
         row.className = 'children-row';
 
-        children.forEach((child) => {
+        children.forEach(function (child) {
             row.appendChild(buildBranch(child, false));
         });
 
         childrenWrap.appendChild(row);
     }
 
-    async function toggleBranch(branch, toggleBtn, nodeState) {
+    function setLoading(toggleBtn, loading) {
+        if (!toggleBtn) return;
+        toggleBtn.classList.toggle('is-loading', loading);
+        const icon = toggleBtn.querySelector('i.bi');
+        const label = toggleBtn.querySelector('.btn-label');
+        if (loading) {
+            if (icon) {
+                icon.className = 'bi bi-arrow-repeat btn-spinner';
+            }
+            if (label) label.textContent = 'Loading...';
+            toggleBtn.disabled = true;
+        } else {
+            toggleBtn.disabled = false;
+        }
+    }
+
+    async function toggleBranch(branch, toggleBtn, nodeState, card) {
         const isExpanded = branch.dataset.expanded === 'true';
         const loaded = branch.dataset.loaded === 'true';
         const nodeId = branch.dataset.nodeId;
         const childrenWrap = branch.querySelector(':scope > .node-children');
+        const icon = toggleBtn ? toggleBtn.querySelector('i.bi') : null;
+        const label = toggleBtn ? toggleBtn.querySelector('.btn-label') : null;
 
         if (isExpanded) {
-            childrenWrap.style.display = 'none';
+            childrenWrap.classList.remove('is-visible');
             branch.dataset.expanded = 'false';
-            toggleBtn.textContent = 'Expand';
-            if (nodeState) {
-                nodeState.textContent = '';
-            }
+            if (card) card.classList.remove('node-card--expanded');
+            if (icon) icon.className = 'bi bi-chevron-down';
+            if (label) label.textContent = 'Expand network';
+            if (nodeState) nodeState.textContent = '';
             return;
         }
 
         if (!loaded) {
             if (nodeState) {
-                nodeState.textContent = 'Loading children...';
+                nodeState.innerHTML = '<i class="bi bi-hourglass-split"></i> Fetching referrals...';
             }
-            toggleBtn.disabled = true;
+            setLoading(toggleBtn, true);
 
             try {
                 const response = await fetch(childrenApiUrl(nodeId), {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 });
 
                 if (!response.ok) {
@@ -322,49 +694,55 @@
                 const data = await response.json();
                 renderChildren(childrenWrap, data.children || []);
                 branch.dataset.loaded = 'true';
-                if (nodeState) {
-                    nodeState.textContent = '';
-                }
+                if (nodeState) nodeState.textContent = '';
             } catch (error) {
                 if (nodeState) {
-                    nodeState.textContent = 'Unable to load children';
+                    nodeState.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Unable to load';
                 }
-                toggleBtn.disabled = false;
+                setLoading(toggleBtn, false);
+                if (icon) icon.className = 'bi bi-chevron-down';
+                if (label) label.textContent = 'Retry expand';
                 return;
             }
 
-            toggleBtn.disabled = false;
+            setLoading(toggleBtn, false);
         }
 
-        childrenWrap.style.display = 'block';
+        childrenWrap.classList.add('is-visible');
         branch.dataset.expanded = 'true';
-        toggleBtn.textContent = 'Collapse';
+        if (card) card.classList.add('node-card--expanded');
+        if (icon) icon.className = 'bi bi-chevron-up';
+        if (label) label.textContent = 'Collapse';
     }
 
     function collapseAll() {
-        const branches = treeCanvas.querySelectorAll('.tree-branch');
-        branches.forEach((branch) => {
+        treeCanvas.querySelectorAll('.tree-branch').forEach(function (branch) {
             const childrenWrap = branch.querySelector(':scope > .node-children');
+            const card = branch.querySelector(':scope > .node-card');
             const toggleBtn = branch.querySelector(':scope > .node-card .node-toggle-btn');
             const nodeState = branch.querySelector(':scope > .node-card .node-state');
+            const icon = toggleBtn ? toggleBtn.querySelector('i.bi') : null;
+            const label = toggleBtn ? toggleBtn.querySelector('.btn-label') : null;
 
             if (childrenWrap) {
-                childrenWrap.style.display = 'none';
+                childrenWrap.classList.remove('is-visible');
             }
             branch.dataset.expanded = 'false';
+            if (card) card.classList.remove('node-card--expanded');
 
             if (toggleBtn && !toggleBtn.disabled) {
-                toggleBtn.textContent = 'Expand';
+                if (icon) icon.className = 'bi bi-chevron-down';
+                if (label) label.textContent = 'Expand network';
             }
-            if (nodeState) {
-                nodeState.textContent = '';
-            }
+            if (nodeState) nodeState.textContent = '';
         });
     }
 
     function renderRoot() {
         treeCanvas.innerHTML = '';
-        treeCanvas.appendChild(buildBranch(rootNode, true));
+        const rootBranch = buildBranch(rootNode, true);
+        treeCanvas.appendChild(rootBranch);
+        rootBranch.style.animation = 'branchIn 0.5s ease-out';
     }
 
     async function performSearch(query) {
@@ -378,28 +756,27 @@
 
         try {
             const response = await fetch(searchApiUrl + '?q=' + encodeURIComponent(trimmed), {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             });
-            if (!response.ok) {
-                return;
-            }
+            if (!response.ok) return;
+
             const payload = await response.json();
             const results = payload.results || [];
 
             if (!results.length) {
-                searchResults.innerHTML = '<div class="hierarchy-search-item">No sponsor found</div>';
+                searchResults.innerHTML = '<div class="hierarchy-search-item"><i class="bi bi-search"></i><span>No sponsor found</span></div>';
                 searchResults.style.display = 'block';
                 selectedSearchId = null;
                 return;
             }
 
             searchResults.innerHTML = '';
-            results.forEach((row) => {
+            results.forEach(function (row) {
                 const item = document.createElement('div');
                 item.className = 'hierarchy-search-item';
-                item.innerHTML = '<strong>' + row.username + '</strong><br><small style="color:#94a3b8">' + (row.unique_id || '-') + '</small>';
+                item.innerHTML = '<i class="bi bi-person-circle"></i><div><strong>' +
+                    escapeHtml(row.username) + '</strong><br><small style="color:#94a3b8">' +
+                    escapeHtml(row.unique_id || '-') + '</small></div>';
                 item.addEventListener('click', function () {
                     selectedSearchId = row.id;
                     searchInput.value = row.username + ' (' + (row.unique_id || '-') + ')';
@@ -414,19 +791,16 @@
     }
 
     function openSelectedHierarchy() {
-        const value = searchInput.value.trim();
         if (selectedSearchId) {
             window.location.href = hierarchyUrl(selectedSearchId);
             return;
         }
 
-        if (!value) {
-            return;
-        }
+        const value = searchInput.value.trim();
+        if (!value) return;
 
         performSearch(value).then(function () {
-            const first = searchResults.querySelector('.hierarchy-search-item');
-            if (first && selectedSearchId) {
+            if (selectedSearchId) {
                 window.location.href = hierarchyUrl(selectedSearchId);
             }
         });

@@ -374,6 +374,7 @@ def _user_tree_payload(user):
     return {
         'id': user.id,
         'username': user.username,
+        'full_name': user.full_name or '',
         'unique_id': user.unique_id,
         'email': user.email,
         'join_date': user.date_joined.strftime('%Y-%m-%d'),
