@@ -6,7 +6,7 @@ from rest_framework.pagination import PageNumberPagination
 from decimal import Decimal
 from .models import Purchase
 from .serializers import PurchaseSerializer, PurchaseInputSerializer
-from apps.notifications.utils import create_notification
+from apps.notifications.utils import create_notification, notify_admins
 from apps.settings_app.models import SystemSettings
 
 
@@ -43,6 +43,11 @@ def purchases_list(request):
         request.user,
         'purchase_submitted',
         f'Your purchase request for {purchase.amount} USDT will generate {calculated_coins:.8f} coins and is pending review.'
+    )
+    notify_admins(
+        'admin_purchase_submitted',
+        f'New purchase from {request.user.email or request.user.username}: '
+        f'{purchase.amount} USDT (TX: {purchase.transaction_id}). Awaiting approval.',
     )
     return Response(PurchaseSerializer(purchase).data, status=status.HTTP_201_CREATED)
 

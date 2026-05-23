@@ -17,7 +17,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from apps.accounts.models import User
-from apps.notifications.utils import create_notification
+from apps.notifications.utils import create_notification, notify_admins
 from .models import SponsorAccessRequest
 
 
@@ -175,6 +175,11 @@ def create_sponsor_access_request(user, ref_slug, payment_txid, payment_wallet):
             f'Your sponsor link request ({slug}) was submitted. '
             f'Fee: {fee} USDT. Waiting for admin approval.'
         ),
+    )
+    notify_admins(
+        'admin_sponsor_submitted',
+        f'New sponsor access request from {user.email or user.username}: '
+        f'slug={slug}, fee={fee} USDT, txid={txid}. Awaiting approval.',
     )
     return req
 
