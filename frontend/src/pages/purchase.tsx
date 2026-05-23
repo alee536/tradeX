@@ -7,8 +7,8 @@ import {
   useCreatePurchase,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useQuery } from "@tanstack/react-query";
 import { getListPurchasesQueryKey } from "@workspace/api-client-react";
+import { usePublicCoinSettings } from "@/hooks/use-public-coin-settings";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -41,24 +41,7 @@ type PurchaseFormValues = z.infer<typeof purchaseSchema>;
 export default function Purchase() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: liveSettings } = useQuery({
-    queryKey: ["public-coin-settings"],
-    queryFn: async () => {
-      const response = await fetch("/api/settings/public");
-      if (!response.ok) {
-        throw new Error("Failed to load coin settings");
-      }
-      return response.json() as Promise<{
-        coin_rate: string | number;
-        currency_symbol: string;
-        last_updated_at: string;
-        min_purchase: string | number;
-        max_purchase: string | number;
-        usdt_wallet_address: string;
-      }>;
-    },
-    refetchInterval: 15000,
-  });
+  const { data: liveSettings } = usePublicCoinSettings();
   const { data: purchases, isLoading: loadingPurchases } = useListPurchases(
     { page: 1 },
     { query: { refetchInterval: 8000 } },

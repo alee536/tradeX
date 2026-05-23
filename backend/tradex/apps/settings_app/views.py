@@ -60,6 +60,8 @@ class PublicSettingsView(APIView):
             'last_updated_at': settings.last_updated_at,
             'min_purchase': settings.min_purchase,
             'max_purchase': settings.max_purchase,
+            'total_coin_supply': settings.total_coin_supply,
+            'profit_percentage': settings.profit_percentage,
             'usdt_wallet_address': django_settings.USDT_PURCHASE_WALLET_ADDRESS,
             'sponsor_payment_wallet_address': django_settings.SPONSOR_PAYMENT_WALLET_ADDRESS,
             'sponsor_access_fee_usdt': float(get_sponsor_access_fee()),
