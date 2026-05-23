@@ -29,6 +29,7 @@ urlpatterns = [
     path('sponsor-access/<int:request_id>/approve/', views.approve_sponsor_access, name='approve_sponsor_access'),
     path('sponsor-access/<int:request_id>/reject/', views.reject_sponsor_access, name='reject_sponsor_access'),
     path('sponsor/', views.sponsor_users_list, name='sponsor_users'),
+    path('sponsor/report/', views.sponsor_report_list, name='sponsor_report'),
     path('sponsor/<int:user_id>/hierarchy/', views.sponsor_hierarchy_view, name='sponsor_hierarchy'),
     path('sponsor/<int:user_id>/hierarchy/children/', views.sponsor_hierarchy_children_api, name='sponsor_hierarchy_children_api'),
     path('sponsor/hierarchy/search/', views.sponsor_hierarchy_search_api, name='sponsor_hierarchy_search_api'),

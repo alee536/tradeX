@@ -22,6 +22,7 @@ urlpatterns = [
     path('admin/sponsor-access/<int:pk>/approve', views.admin_approve_sponsor_access, name='admin-approve-sponsor-access'),
     path('admin/sponsor-access/<int:pk>/reject', views.admin_reject_sponsor_access, name='admin-reject-sponsor-access'),
     path('admin/settings', views.admin_settings, name='admin-settings'),
+    path('admin/sponsor/report', views.admin_sponsor_report, name='admin-sponsor-report'),
     path('admin/sponsor', views.admin_sponsor_list, name='admin-sponsor'),
     path('admin/sponsor/tree/<int:pk>', views.admin_sponsor_tree, name='admin-sponsor-tree'),
     path('admin/sponsor/tree-root', views.admin_sponsor_tree_root, name='admin-sponsor-tree-root'),

@@ -22,6 +22,7 @@ from apps.sponsor.access import (
     reject_sponsor_access_request,
 )
 from apps.sponsor.models import SponsorAccessRequest
+from apps.sponsor.report import get_sponsor_report_rows
 from apps.notifications.utils import create_notification
 from .permissions import admin_required
 
@@ -332,12 +333,48 @@ def sponsor_users_list(request):
     return render(request, 'admin/sponsor_users.html', context)
 
 
+@admin_required
+def sponsor_report_list(request):
+    """Flat sponsor-wise performance summary (full downline, no tree UI)."""
+    search = request.GET.get('search', '').strip()
+    order_by = request.GET.get('order_by', '-total_investment_usdt')
+    allowed_order = {
+        'total_investment_usdt',
+        '-total_investment_usdt',
+        'sponsored_users_count',
+        '-sponsored_users_count',
+        'total_earning',
+        '-total_earning',
+        'sponsor_name',
+        '-sponsor_name',
+    }
+    if order_by not in allowed_order:
+        order_by = '-total_investment_usdt'
+
+    rows = get_sponsor_report_rows(search=search or None, order_by=order_by)
+
+    context = {
+        'rows': rows,
+        'search': search,
+        'order_by': order_by,
+        'order_options': [
+            ('-total_investment_usdt', 'Investment (high → low)'),
+            ('total_investment_usdt', 'Investment (low → high)'),
+            ('-sponsored_users_count', 'Downline users (high → low)'),
+            ('-total_earning', 'Commission earned (high → low)'),
+            ('sponsor_name', 'Name (A → Z)'),
+        ],
+    }
+    return render(request, 'admin/sponsor_report.html', context)
+
+
 def _user_tree_payload(user):
     """Serialize one user node for hierarchy UI."""
     user.total_coins = user.total_coins or Decimal('0')
     return {
         'id': user.id,
         'username': user.username,
+        'full_name': user.full_name or '',
         'unique_id': user.unique_id,
         'email': user.email,
         'join_date': user.date_joined.strftime('%Y-%m-%d'),

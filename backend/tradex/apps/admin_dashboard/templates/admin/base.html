@@ -813,7 +813,7 @@
         <div class="sidebar-brand">
             <a href="{{ FRONTEND_URL }}/" title="Open trader app home" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
                 <img src="{% static 'images/logo.png' %}" alt="24TradeX Logo" style="width: 5rem; height: 5rem; display: block;">
-                <h4 style="margin: 0; white-space: nowrap; font-size: 1.5rem;">TRADEX</h4>
+                <h4 style="margin: 0; white-space: nowrap; font-size: 1.5rem;">24TRADEX</h4>
             </a>
         </div>
         <ul class="sidebar-nav">
@@ -863,6 +863,12 @@
                 <a href="{% url 'admin_dashboard:sponsor_users' %}" class="{% if request.resolver_match.url_name == 'sponsor_users' or request.resolver_match.url_name == 'sponsor_hierarchy' %}active{% endif %}">
                     <i class="bi bi-diagram-2"></i>
                     <span>Sponsors</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'admin_dashboard:sponsor_report' %}" class="{% if request.resolver_match.url_name == 'sponsor_report' %}active{% endif %}">
+                    <i class="bi bi-table"></i>
+                    <span>Sponsor Report</span>
                 </a>
             </li>
             <li>

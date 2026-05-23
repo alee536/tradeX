@@ -1,0 +1,93 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Sponsor Report - 24TradeX Admin{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1><i class="bi bi-table"></i> Sponsor Report</h1>
+    <p style="color: #94a3b8; margin-top: 4px;">
+        Flat sponsor-wise summary. Each row includes the full downline (direct + indirect referrals).
+        Child sponsors who also refer users appear on their own row.
+    </p>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label" style="color: #94a3b8; font-size: 13px;">Search sponsor</label>
+                <input type="text" name="search" class="form-control"
+                       placeholder="Name, username, email, or ID"
+                       value="{{ search }}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" style="color: #94a3b8; font-size: 13px;">Sort by</label>
+                <select name="order_by" class="form-select">
+                    {% for value, label in order_options %}
+                        <option value="{{ value }}" {% if order_by == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-funnel"></i> Apply
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Sponsor Name</th>
+                <th>No. of Sponsored Users</th>
+                <th>Direct</th>
+                <th>Total Investment (USDT)</th>
+                <th>Total Earning (Commission)</th>
+                <th>Other Details</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+                <tr>
+                    <td>
+                        <strong>{{ row.sponsor_name }}</strong><br>
+                        <small style="color: #94a3b8;">@{{ row.sponsor_username }} · {{ row.sponsor_unique_id }}</small>
+                    </td>
+                    <td><span class="badge bg-info">{{ row.sponsored_users_count }}</span></td>
+                    <td>{{ row.direct_sponsored_count }}</td>
+                    <td>${{ row.total_investment_usdt|floatformat:2 }}</td>
+                    <td>{{ row.total_earning|floatformat:8 }} <small style="color: #94a3b8;">coins</small></td>
+                    <td style="font-size: 12px; color: #94a3b8; max-width: 220px;">
+                        Active downline: {{ row.other_details.active_downline_users }}<br>
+                        Downline withdrawals: ${{ row.downline_withdrawals_usdt|floatformat:2 }}<br>
+                        Coins invested: {{ row.total_investment_coins|floatformat:4 }}<br>
+                        {% if row.other_details.sponsor_ref_slug %}
+                            Ref: /ref/{{ row.other_details.sponsor_ref_slug }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="d-flex flex-column gap-1">
+                            <a href="{% url 'admin_dashboard:user_detail' row.sponsor_id %}" class="btn btn-primary btn-sm">
+                                <i class="bi bi-eye"></i> Profile
+                            </a>
+                            <a href="{% url 'admin_dashboard:sponsor_hierarchy' row.sponsor_id %}" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-diagram-3"></i> Hierarchy
+                            </a>
+                        </div>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5">
+                        <p style="color: #94a3b8;">No sponsors found.</p>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
