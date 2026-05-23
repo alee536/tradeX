@@ -17,10 +17,14 @@ def profit_multiplier(settings_obj):
 
 
 def profit_percentage_value(settings_obj):
-    mult = profit_multiplier(settings_obj)
-    if mult <= Decimal('1'):
+    """Return admin-configured profit % for display. Reads the DB field directly — no round-trip."""
+    try:
+        if not settings_obj.profit_enabled:
+            return Decimal('0')
+    except Exception:
         return Decimal('0')
-    return ((mult - Decimal('1')) * Decimal('100')).quantize(Decimal('0.01'))
+    pct = Decimal(str(settings_obj.profit_percentage or 0))
+    return pct if pct > 0 else Decimal('0')
 
 
 def purchase_base_usdt(purchase):

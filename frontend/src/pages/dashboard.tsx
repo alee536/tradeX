@@ -38,6 +38,11 @@ function AnimatedCounter({ value, isCurrency = false, symbol = "24TX" }: { value
   return <span>{formatCrypto(displayValue, symbol)}</span>;
 }
 
+function formatPct(value: number | undefined | null): number {
+  const n = value ?? 0;
+  return Number.isInteger(n) ? n : parseFloat(n.toFixed(2));
+}
+
 function formatCountdown(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));
   const days = Math.floor(s / 86400);
@@ -84,6 +89,7 @@ function ProfitRewardCard({
   if (!profit?.enabled) return null;
 
   const pct = profit.profit_percentage ?? 0;
+  const pctDisplay = formatPct(pct);
   const base = profit.base_usdt ?? 0;
   const profitAdd = profit.estimated_profit_usdt ?? 0;
   const total = profit.total_after_profit_usdt ?? 0;
@@ -97,7 +103,7 @@ function ProfitRewardCard({
         </CardTitle>
         <span className="text-xs font-semibold text-amber-300 bg-amber-500/10 px-2 py-1 rounded flex items-center gap-1">
           <Percent className="h-3 w-3" />
-          {pct}% on your profile deposits
+          {pctDisplay}% on your profile deposits
         </span>
       </CardHeader>
       <CardContent>
@@ -110,13 +116,13 @@ function ProfitRewardCard({
             <span className="text-white font-semibold">{formatCurrency(base)}</span>
             <Plus className="h-4 w-4 text-amber-400 shrink-0" />
             <span className="text-amber-300 font-semibold">
-              {pct}% ({formatCurrency(profitAdd)})
+              {pctDisplay}% ({formatCurrency(profitAdd)})
             </span>
             <span className="text-muted-foreground">=</span>
             <span className="text-green-400 font-bold text-lg">{formatCurrency(total)}</span>
           </div>
           <p className="text-[11px] text-muted-foreground mt-2">
-            Each purchase total includes +{pct}% profit. Claim on Withdraw: {profit.stage1_hours ?? 72}h → 50%, then +{profit.stage2_hours ?? 24}h → 25%, then +{profit.stage3_hours ?? 24}h → 25% (no admin approval).
+            Each purchase total includes +{pctDisplay}% profit. Claim on Withdraw: {profit.stage1_hours ?? 72}h → 50%, then +{profit.stage2_hours ?? 24}h → 25%, then +{profit.stage3_hours ?? 24}h → 25% (no admin approval).
           </p>
         </div>
 
@@ -226,10 +232,10 @@ export default function Dashboard() {
             </div>
             <div className="flex-1 min-w-[200px]">
               <p className="text-sm font-semibold text-white">
-                Your profit rate: {summary.profit.profit_percentage ?? 0}%
+                Your profit rate: {formatPct(summary.profit.profit_percentage)}%
               </p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Deposits {formatCurrency(summary.profit.base_usdt ?? 0)} + {summary.profit.profit_percentage ?? 0}% bonus{" "}
+                Deposits {formatCurrency(summary.profit.base_usdt ?? 0)} + {formatPct(summary.profit.profit_percentage)}% bonus{" "}
                 <span className="text-amber-300">({formatCurrency(summary.profit.estimated_profit_usdt ?? 0)})</span>
                 {" "}= {formatCurrency(summary.profit.total_after_profit_usdt ?? 0)} total value
               </p>
