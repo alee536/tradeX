@@ -15,6 +15,7 @@ from apps.sponsor.access import (
     reject_sponsor_access_request,
 )
 from apps.sponsor.models import SponsorAccessRequest
+from apps.sponsor.report import get_sponsor_report_rows
 from apps.notifications.utils import create_notification
 from apps.settings_app.models import SystemSettings
 from apps.settings_app.serializers import SystemSettingsSerializer
@@ -610,6 +611,35 @@ def admin_settings(request):
 
 
 # ---- Sponsor ----
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsAdminUser])
+def admin_sponsor_report(request):
+    """
+    Flat sponsor-wise summary: full downline counts, investment, and earnings.
+    No tree structure — each qualifying sponsor appears as one table row.
+    """
+    search = request.query_params.get('search')
+    order_by = request.query_params.get('order_by', '-total_investment_usdt')
+    allowed_order = {
+        'total_investment_usdt',
+        '-total_investment_usdt',
+        'sponsored_users_count',
+        '-sponsored_users_count',
+        'total_earning',
+        '-total_earning',
+        'sponsor_name',
+        '-sponsor_name',
+    }
+    if order_by not in allowed_order:
+        order_by = '-total_investment_usdt'
+
+    rows = get_sponsor_report_rows(search=search, order_by=order_by)
+
+    paginator = AdminPaginator()
+    page = paginator.paginate_queryset(rows, request)
+    return paginator.get_paginated_response(page)
+
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsAdminUser])

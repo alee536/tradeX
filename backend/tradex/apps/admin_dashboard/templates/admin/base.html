@@ -866,6 +866,12 @@
                 </a>
             </li>
             <li>
+                <a href="{% url 'admin_dashboard:sponsor_report' %}" class="{% if request.resolver_match.url_name == 'sponsor_report' %}active{% endif %}">
+                    <i class="bi bi-table"></i>
+                    <span>Sponsor Report</span>
+                </a>
+            </li>
+            <li>
                 <a href="{% url 'admin_dashboard:coin_settings' %}" class="{% if request.resolver_match.url_name == 'coin_settings' %}active{% endif %}">
                     <i class="bi bi-currency-bitcoin"></i>
                     <span>Coin Settings</span>
