@@ -1,14 +1,69 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { SocialLinks } from "@/components/ui/social-links";
+import {
+  fetchHomePublicSettings,
+  formatCoinRate,
+  formatTotalSupply,
+  landingProfitPercent,
+  planReturnAmount,
+} from "@/lib/home-public-settings";
+
+const HOME_FEATURES = [
+  { icon: "⚡", title: "INSTANT EXECUTION", desc: "Trades execute in milliseconds. Our matching engine handles 100,000+ transactions per second." },
+  { icon: "🔒", title: "MILITARY SECURITY", desc: "256-bit encryption, 2FA, and cold-wallet storage keep your assets safe." },
+  { icon: "💎", title: "REFERRAL REWARDS", desc: "Earn passive income by inviting friends. Our sponsor system rewards every layer." },
+  { icon: "🌐", title: "GLOBAL ACCESS", desc: "Trade from anywhere in the world, 24/7. Multiple fiat on-ramps." },
+  { icon: "📊", title: "LIVE ANALYTICS", desc: "Real-time charts, portfolio tracking, and market depth analysis." },
+];
+
+const INVESTMENT_PLANS = [
+  { amount: 10, label: "Minimum Invest" },
+  { amount: 50, label: "Starter Pack" },
+  { amount: 100, label: "Growth Pack", featured: true },
+  { amount: 500, label: "Pro Pack" },
+  { amount: 1000, label: "Elite Pack" },
+];
 
 export default function Home() {
   const { user } = useAuth();
   const [investment, setInvestment] = useState(100);
 
-  const profit = investment * 0.1;
-  const total = investment + profit;
+  const { data: publicSettings } = useQuery({
+    queryKey: ["public-coin-settings", "home"],
+    queryFn: fetchHomePublicSettings,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
+  const currencySymbol = publicSettings?.currency_symbol || "USD";
+  const coinRateDisplay = formatCoinRate(publicSettings?.coin_rate, currencySymbol);
+  const totalSupplyDisplay = formatTotalSupply(publicSettings?.total_coin_supply);
+  const profitPercent = landingProfitPercent(publicSettings?.profit_percentage);
+
+  const { profit, total } = useMemo(
+    () => planReturnAmount(investment, profitPercent),
+    [investment, profitPercent],
+  );
+
+  const planCards = useMemo(
+    () =>
+      INVESTMENT_PLANS.map((plan) => {
+        const { profit: planProfit, total: planTotal } = planReturnAmount(
+          plan.amount,
+          profitPercent,
+        );
+        return {
+          ...plan,
+          amountLabel: `$${plan.amount.toLocaleString()}`,
+          returnLabel: `$${planTotal.toLocaleString()}`,
+          profitLabel: planProfit,
+        };
+      }),
+    [profitPercent],
+  );
 
   useEffect(() => {
     if (user) {
@@ -55,9 +110,9 @@ export default function Home() {
                 <span className="text-green-400">+1.87%</span>
               </div>
               <div className="flex items-center gap-2 px-9 py-2.5 text-xs font-mono text-slate-400 border-r border-slate-700 whitespace-nowrap">
-                <span className="text-cyan-400 font-semibold">TDX/USD</span>
-                <span className="text-cyan-300">$0.25000</span>
-                <span className="text-green-400">+5.20%</span>
+                <span className="text-cyan-400 font-semibold">24TX/{currencySymbol}</span>
+                <span className="text-cyan-300">{coinRateDisplay}</span>
+                <span className="text-green-400">Live rate</span>
               </div>
               <div className="flex items-center gap-2 px-9 py-2.5 text-xs font-mono text-slate-400 whitespace-nowrap">
                 <span className="text-cyan-400 font-semibold">SOL/USD</span>
@@ -79,7 +134,7 @@ export default function Home() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-blue-900/30 border border-blue-500/40 rounded-full px-4 py-2 mb-8">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-xs font-mono font-semibold text-cyan-400 tracking-wider">ICO LIVE — PHASE 1 ACTIVE</span>
+            <span className="text-xs font-mono font-semibold text-cyan-400 tracking-wider">LIVE TRADING — 24TX</span>
           </div>
 
           {/* Headline */}
@@ -133,13 +188,13 @@ export default function Home() {
         <div className="hidden lg:flex absolute right-16 top-1/2 -translate-y-1/2 flex-col gap-4 w-80">
           <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5 backdrop-blur hover:border-blue-500/40 transition-all">
             <p className="text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Coin Rate</p>
-            <p className="text-2xl font-black text-cyan-400">$0.2500</p>
-            <p className="text-sm text-green-400 mt-1">↑ +5.20% today</p>
+            <p className="text-2xl font-black text-cyan-400">{coinRateDisplay}</p>
+            <p className="text-sm text-green-400 mt-1">Admin rate · live</p>
           </div>
           <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5 backdrop-blur hover:border-blue-500/40 transition-all">
             <p className="text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Total Supply</p>
-            <p className="text-2xl font-black text-cyan-400">32,000,000</p>
-            <p className="text-sm text-slate-400 mt-1">TDX tokens</p>
+            <p className="text-2xl font-black text-cyan-400">{totalSupplyDisplay}</p>
+            <p className="text-sm text-slate-400 mt-1">24TX tokens</p>
           </div>
           <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5 backdrop-blur hover:border-blue-500/40 transition-all">
             <p className="text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Active Users</p>
@@ -159,14 +214,7 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[
-            { icon: "⚡", title: "INSTANT EXECUTION", desc: "Trades execute in milliseconds. Our matching engine handles 100,000+ transactions per second." },
-            { icon: "🔒", title: "MILITARY SECURITY", desc: "256-bit encryption, 2FA, and cold-wallet storage keep your assets safe." },
-            { icon: "📈", title: "ICO LAUNCHPAD", desc: "Get early access to exclusive token offerings. Buy TDX at $0.25." },
-            { icon: "💎", title: "REFERRAL REWARDS", desc: "Earn passive income by inviting friends. Our sponsor system rewards every layer." },
-            { icon: "🌐", title: "GLOBAL ACCESS", desc: "Trade from anywhere in the world, 24/7. Multiple fiat on-ramps." },
-            { icon: "📊", title: "LIVE ANALYTICS", desc: "Real-time charts, portfolio tracking, and market depth analysis." },
-          ].map((f, i) => (
+          {HOME_FEATURES.map((f, i) => (
             <div
               key={i}
               className="bg-slate-800/30 border border-blue-500/20 rounded-2xl p-8 backdrop-blur hover:border-blue-500/40 hover:bg-slate-800/50 transition-all group"
@@ -186,22 +234,20 @@ export default function Home() {
         <div className="text-center mb-16 relative z-10">
           <p className="text-xs font-mono font-bold text-blue-400 tracking-widest mb-4">// EARN WITH TRADEX</p>
           <h2 className="text-4xl md:text-5xl font-black mb-4">
-            Invest &amp; Get <span className="bg-gradient-to-r from-cyan-400 to-green-400 bg-clip-text text-transparent">10% Weekly Returns</span>
+            Invest &amp; Get{" "}
+            <span className="bg-gradient-to-r from-cyan-400 to-green-400 bg-clip-text text-transparent">
+              {profitPercent}% after 120 hours
+            </span>
           </h2>
           <p className="text-slate-300 max-w-2xl mx-auto">
-            Start with as little as <span className="text-cyan-400 font-bold">$10</span>. Every dollar you invest returns 110% after just one week — guaranteed yield.
+            Start with as little as <span className="text-cyan-400 font-bold">$10</span>. Every dollar you
+            invest returns {100 + profitPercent}% after <span className="text-cyan-400 font-bold">120 hours</span> — admin-configured yield.
           </p>
         </div>
 
         {/* Plan Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-12 relative z-10">
-          {[
-            { amount: "$10", label: "Minimum Invest", return: "$11" },
-            { amount: "$50", label: "Starter Pack", return: "$55" },
-            { amount: "$100", label: "Growth Pack", return: "$110", featured: true },
-            { amount: "$500", label: "Pro Pack", return: "$550" },
-            { amount: "$1,000", label: "Elite Pack", return: "$1,100" },
-          ].map((plan, i) => (
+          {planCards.map((plan, i) => (
             <div
               key={i}
               className={`rounded-2xl p-6 backdrop-blur transition-all ${
@@ -215,14 +261,14 @@ export default function Home() {
                   🔥 Most Popular
                 </div>
               )}
-              <div className="text-3xl font-black text-cyan-400 mb-2">{plan.amount}</div>
+              <div className="text-3xl font-black text-cyan-400 mb-2">{plan.amountLabel}</div>
               <p className="text-xs font-mono text-slate-500 mb-4 uppercase tracking-widest">{plan.label}</p>
               <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3 mb-3">
                 <p className="text-xs text-slate-400 mb-1">You Get Back</p>
-                <p className="text-lg font-black text-green-400">{plan.return}</p>
+                <p className="text-lg font-black text-green-400">{plan.returnLabel}</p>
               </div>
               <p className="text-xs text-slate-500">
-                After <span className="text-cyan-400 font-bold">120 hours</span> · {parseInt(plan.return.slice(1)) - parseInt(plan.amount.slice(1))} profit
+                After <span className="text-cyan-400 font-bold">120 hours</span> · {plan.profitLabel} profit
               </p>
             </div>
           ))}
@@ -233,7 +279,7 @@ export default function Home() {
           <div className="bg-slate-800/50 border border-blue-500/40 rounded-2xl p-8 backdrop-blur">
             <div className="mb-2">
               <h3 className="font-bold text-lg text-white">💰 Returns Calculator</h3>
-              <p className="text-xs text-slate-400 font-mono">Drag the slider to see your weekly earnings instantly</p>
+              <p className="text-xs text-slate-400 font-mono">Drag the slider to see your returns after 120 hours</p>
             </div>
 
             <div className="mt-6 mb-6">
@@ -259,7 +305,7 @@ export default function Home() {
                 <p className="text-xl font-black text-cyan-400">${investment.toLocaleString()}</p>
               </div>
               <div className="text-center">
-                <p className="text-xs text-slate-500 mb-2 uppercase tracking-widest">Weekly Profit</p>
+                <p className="text-xs text-slate-500 mb-2 uppercase tracking-widest">120 Hours Profit</p>
                 <p className="text-xl font-black text-green-400">+${profit.toLocaleString()}</p>
               </div>
               <div className="text-center">
@@ -269,7 +315,7 @@ export default function Home() {
             </div>
 
             <p className="text-xs text-slate-500 text-center mt-4 font-mono">
-              Fixed <span className="text-cyan-400">10% weekly yield</span> · Minimum <span className="text-cyan-400">$10</span> · Returns paid after <span className="text-cyan-400">7 days</span>
+              Fixed <span className="text-cyan-400">{profitPercent}% yield</span> · Minimum <span className="text-cyan-400">$10</span> · Returns paid after <span className="text-cyan-400">120 hours</span>
             </p>
           </div>
         </div>
@@ -299,7 +345,7 @@ export default function Home() {
               {[
                 { rank: 1, name: "Bitcoin", symbol: "BTC", price: "$67,420.50", change: "+2.34%", cap: "$1.32T", icon: "₿", color: "from-orange-500 to-yellow-500" },
                 { rank: 2, name: "Ethereum", symbol: "ETH", price: "$3,812.00", change: "+1.87%", cap: "$458B", icon: "Ξ", color: "from-purple-500 to-blue-500" },
-                { rank: 3, name: "TRADEX", symbol: "TDX", price: "$0.25000", change: "+5.20%", cap: "$8M", icon: "T", color: "from-blue-500 to-cyan-500" },
+                { rank: 3, name: "TRADEX", symbol: "24TX", price: coinRateDisplay, change: "Live", cap: "—", icon: "T", color: "from-blue-500 to-cyan-500" },
               ].map((coin, i) => (
                 <tr key={i} className="border-b border-blue-500/10 hover:bg-blue-500/5 transition-colors">
                   <td className="py-4 px-4 text-slate-400">{coin.rank}</td>
@@ -332,7 +378,7 @@ export default function Home() {
             Ready to <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Join TRADEX?</span>
           </h2>
           <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-            Don't miss Phase 1. TDX tokens are selling fast at $0.25 — lock in your position today.
+            Buy 24TX at the live admin rate ({coinRateDisplay}) — lock in your position today.
           </p>
           {user ? (
             <Link href="/purchase">
