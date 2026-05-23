@@ -158,6 +158,133 @@
             align-items: center;
         }
 
+        /* Admin notification bell */
+        .admin-topbar {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            margin-bottom: 20px;
+            gap: 12px;
+        }
+        .admin-bell-btn {
+            position: relative;
+            background: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-light);
+            border-radius: 10px;
+            width: 42px;
+            height: 42px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: border-color 0.15s ease, transform 0.15s ease;
+        }
+        .admin-bell-btn:hover {
+            border-color: var(--accent-color);
+            color: var(--accent-color);
+        }
+        .admin-bell-btn i {
+            font-size: 20px;
+            line-height: 1;
+        }
+        .admin-bell-badge {
+            position: absolute;
+            top: -6px;
+            right: -6px;
+            min-width: 20px;
+            height: 20px;
+            padding: 0 5px;
+            border-radius: 999px;
+            background: var(--danger-color);
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            line-height: 20px;
+            text-align: center;
+            box-shadow: 0 0 0 2px var(--primary-color);
+        }
+        .admin-bell-menu {
+            min-width: 360px;
+            max-width: 420px;
+            background: var(--secondary-color);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 0;
+            box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+        }
+        .admin-bell-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .admin-bell-header strong {
+            font-size: 14px;
+            color: #ffffff;
+        }
+        .admin-bell-mark-all {
+            background: transparent;
+            border: none;
+            color: var(--accent-color);
+            font-size: 12px;
+            cursor: pointer;
+            padding: 0;
+        }
+        .admin-bell-mark-all:hover {
+            text-decoration: underline;
+        }
+        .admin-bell-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            max-height: 360px;
+            overflow-y: auto;
+        }
+        .admin-bell-item {
+            padding: 0;
+            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+        }
+        .admin-bell-item:last-child {
+            border-bottom: none;
+        }
+        .admin-bell-item form {
+            margin: 0;
+        }
+        .admin-bell-item-link {
+            display: block;
+            padding: 12px 14px;
+            color: var(--text-light);
+            font-size: 13px;
+            line-height: 1.4;
+            border: none;
+            background: transparent;
+            width: 100%;
+            text-align: left;
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .admin-bell-item-link:hover {
+            background: rgba(59, 130, 246, 0.08);
+            color: var(--text-light);
+        }
+        .admin-bell-item-link.unread {
+            background: rgba(59, 130, 246, 0.06);
+            border-left: 3px solid var(--accent-color);
+        }
+        .admin-bell-time {
+            display: block;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .admin-bell-empty {
+            padding: 24px 14px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
         /* Cards */
         .stat-card {
             background: linear-gradient(135deg, var(--secondary-color) 0%, rgba(30, 41, 59, 0.5) 100%);
@@ -772,6 +899,57 @@
 
     <!-- Main Content -->
     <div class="main-content">
+        {% if user.is_authenticated and user.is_staff %}
+        <div class="admin-topbar">
+            <div class="dropdown">
+                <button class="admin-bell-btn"
+                        type="button"
+                        id="adminBellDropdown"
+                        data-bs-toggle="dropdown"
+                        data-bs-auto-close="outside"
+                        aria-expanded="false"
+                        aria-label="Notifications">
+                    <i class="bi bi-bell-fill"></i>
+                    {% if admin_unread_count and admin_unread_count > 0 %}
+                        <span class="admin-bell-badge">
+                            {% if admin_unread_count > 99 %}99+{% else %}{{ admin_unread_count }}{% endif %}
+                        </span>
+                    {% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end admin-bell-menu" aria-labelledby="adminBellDropdown">
+                    <div class="admin-bell-header">
+                        <strong>Notifications</strong>
+                        {% if admin_unread_count and admin_unread_count > 0 %}
+                            <form method="post" action="{% url 'admin_dashboard:admin_notification_mark_all_read' %}" style="margin:0">
+                                {% csrf_token %}
+                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                <button type="submit" class="admin-bell-mark-all">Mark all as read</button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% if admin_recent_notifications %}
+                        <ul class="admin-bell-list">
+                            {% for n in admin_recent_notifications %}
+                                <li class="admin-bell-item">
+                                    <form method="post" action="{% url 'admin_dashboard:admin_notification_mark_read' n.id %}">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="next" value="{{ n.link }}">
+                                        <button type="submit" class="admin-bell-item-link{% if not n.is_read %} unread{% endif %}">
+                                            {{ n.message }}
+                                            <span class="admin-bell-time">{{ n.created_at|timesince }} ago</span>
+                                        </button>
+                                    </form>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <div class="admin-bell-empty">No notifications yet.</div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">

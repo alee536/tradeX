@@ -70,6 +70,7 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'apps.admin_dashboard.context_processors.frontend_url',
+                'apps.admin_dashboard.context_processors.admin_notifications',
             ],
         },
     },

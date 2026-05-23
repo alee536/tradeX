@@ -769,3 +769,41 @@ def reject_sponsor_access(request, request_id):
     except SponsorAccessError as exc:
         messages.error(request, str(exc))
     return redirect('admin_dashboard:sponsor_access')
+
+
+# ==================== ADMIN NOTIFICATION BELL ====================
+def _safe_next_url(request, fallback: str) -> str:
+    """Return POSTed `next` if it is a safe local path, else fallback."""
+    next_url = (request.POST.get('next') or '').strip()
+    if next_url.startswith('/') and not next_url.startswith('//'):
+        return next_url
+    return fallback
+
+
+@admin_required
+@require_http_methods(['POST'])
+def admin_notification_mark_read(request, notification_id):
+    """Mark a single admin notification as read for the current admin user."""
+    from apps.notifications.models import Notification
+
+    Notification.objects.filter(
+        id=notification_id,
+        user=request.user,
+        type__startswith='admin_',
+        is_read=False,
+    ).update(is_read=True)
+    return redirect(_safe_next_url(request, 'admin_dashboard:dashboard'))
+
+
+@admin_required
+@require_http_methods(['POST'])
+def admin_notification_mark_all_read(request):
+    """Mark every unread admin notification for the current admin user as read."""
+    from apps.notifications.models import Notification
+
+    Notification.objects.filter(
+        user=request.user,
+        type__startswith='admin_',
+        is_read=False,
+    ).update(is_read=True)
+    return redirect(_safe_next_url(request, 'admin_dashboard:dashboard'))
