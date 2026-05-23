@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { usePublicCoinSettings } from "@/hooks/use-public-coin-settings";
 import {
   useGetSponsorStats,
   useListSponsoredUsers,
@@ -81,18 +82,7 @@ export default function Sponsor() {
     search: searchQuery || undefined,
   });
 
-  const { data: liveSettings } = useQuery({
-    queryKey: ["public-coin-settings"],
-    queryFn: async () => {
-      const response = await fetch("/api/settings/public");
-      if (!response.ok) throw new Error("Failed to load settings");
-      return response.json() as Promise<{
-        usdt_wallet_address: string;
-        sponsor_payment_wallet_address?: string;
-        sponsor_access_fee_usdt?: number;
-      }>;
-    },
-  });
+  const { data: liveSettings } = usePublicCoinSettings();
 
   const accessMutation = useCreateSponsorAccessRequest({
     mutation: {

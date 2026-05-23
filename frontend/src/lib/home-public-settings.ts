@@ -3,9 +3,15 @@
 export type HomePublicSettings = {
   coin_rate: string | number;
   currency_symbol: string;
-  total_coin_supply: string | number;
+  total_coin_supply?: string | number;
   profit_percentage?: string | number | null;
+  profit_enabled?: boolean;
   last_updated_at?: string;
+  min_purchase?: string | number;
+  max_purchase?: string | number;
+  usdt_wallet_address?: string;
+  sponsor_payment_wallet_address?: string;
+  sponsor_access_fee_usdt?: number;
 };
 
 export async function fetchHomePublicSettings(): Promise<HomePublicSettings> {

@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { usePublicCoinSettings } from "@/hooks/use-public-coin-settings";
 import { SocialLinks } from "@/components/ui/social-links";
 import {
-  fetchHomePublicSettings,
   formatCoinRate,
   formatTotalSupply,
   landingProfitPercent,
@@ -31,12 +30,7 @@ export default function Home() {
   const { user } = useAuth();
   const [investment, setInvestment] = useState(100);
 
-  const { data: publicSettings } = useQuery({
-    queryKey: ["public-coin-settings", "home"],
-    queryFn: fetchHomePublicSettings,
-    staleTime: 60_000,
-    refetchInterval: 60_000,
-  });
+  const { data: publicSettings } = usePublicCoinSettings();
 
   const currencySymbol = publicSettings?.currency_symbol || "USD";
   const coinRateDisplay = formatCoinRate(publicSettings?.coin_rate, currencySymbol);
