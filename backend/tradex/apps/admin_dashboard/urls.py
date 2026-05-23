@@ -46,4 +46,16 @@ urlpatterns = [
 
     # Coin Settings
     path('settings/coin/', views.coin_settings, name='coin_settings'),
+
+    # Admin notification bell
+    path(
+        'notifications/<int:notification_id>/read/',
+        views.admin_notification_mark_read,
+        name='admin_notification_mark_read',
+    ),
+    path(
+        'notifications/read-all/',
+        views.admin_notification_mark_all_read,
+        name='admin_notification_mark_all_read',
+    ),
 ]
