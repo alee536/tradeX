@@ -244,7 +244,6 @@ export function ClaimScheduleCard({
       data: {
         purchase_id: schedule.purchase_id,
         stage: stageNo,
-        wallet_address: wallet.trim() || undefined,
       },
     });
   };
