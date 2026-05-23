@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { useAuth } from "@/hooks/use-auth";
 import { usePublicCoinSettings } from "@/hooks/use-public-coin-settings";
 import { SocialLinks } from "@/components/ui/social-links";
+import { BRAND_NAME, COIN_SYMBOL } from "@/lib/brand";
 import {
   formatCoinRate,
   formatTotalSupply,
@@ -128,7 +129,9 @@ export default function Home() {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 bg-blue-900/30 border border-blue-500/40 rounded-full px-4 py-2 mb-8">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-            <span className="text-xs font-mono font-semibold text-cyan-400 tracking-wider">LIVE TRADING — 24TX</span>
+            <span className="text-xs font-mono font-semibold text-cyan-400 tracking-wider">
+              LIVE TRADING — {COIN_SYMBOL} · {coinRateDisplay}
+            </span>
           </div>
 
           {/* Headline */}
@@ -143,7 +146,7 @@ export default function Home() {
 
           {/* Subheading */}
           <p className="text-lg md:text-xl text-slate-300 mb-8 max-w-2xl leading-relaxed">
-            TRADEX is the next-generation cryptocurrency exchange platform built for serious traders. Buy, sell, and earn with zero compromise on speed, security, or yield.
+            {BRAND_NAME} is the next-generation cryptocurrency exchange platform built for serious traders. Buy, sell, and earn with zero compromise on speed, security, or yield.
           </p>
 
           {/* CTA Buttons */}
@@ -188,7 +191,7 @@ export default function Home() {
           <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5 backdrop-blur hover:border-blue-500/40 transition-all">
             <p className="text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Total Supply</p>
             <p className="text-2xl font-black text-cyan-400">{totalSupplyDisplay}</p>
-            <p className="text-sm text-slate-400 mt-1">24TX tokens</p>
+            <p className="text-sm text-slate-400 mt-1">{COIN_SYMBOL} tokens</p>
           </div>
           <div className="bg-slate-800/50 border border-blue-500/20 rounded-xl p-5 backdrop-blur hover:border-blue-500/40 transition-all">
             <p className="text-xs font-mono text-slate-500 mb-2 uppercase tracking-widest">Active Users</p>
@@ -201,7 +204,7 @@ export default function Home() {
       {/* FEATURES SECTION */}
       <section className="px-6 md:px-16 lg:px-20 py-24 border-y border-blue-500/20">
         <div className="text-center mb-16">
-          <p className="text-xs font-mono font-bold text-blue-400 tracking-widest mb-4">// WHY TRADEX</p>
+          <p className="text-xs font-mono font-bold text-blue-400 tracking-widest mb-4">// WHY {BRAND_NAME}</p>
           <h2 className="text-4xl md:text-5xl font-black">
             Built for the <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Future of Finance</span>
           </h2>
@@ -226,7 +229,7 @@ export default function Home() {
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-green-500/5 rounded-full blur-3xl pointer-events-none" />
 
         <div className="text-center mb-16 relative z-10">
-          <p className="text-xs font-mono font-bold text-blue-400 tracking-widest mb-4">// EARN WITH TRADEX</p>
+          <p className="text-xs font-mono font-bold text-blue-400 tracking-widest mb-4">// EARN WITH {BRAND_NAME}</p>
           <h2 className="text-4xl md:text-5xl font-black mb-4">
             Invest &amp; Get{" "}
             <span className="bg-gradient-to-r from-cyan-400 to-green-400 bg-clip-text text-transparent">
@@ -339,7 +342,7 @@ export default function Home() {
               {[
                 { rank: 1, name: "Bitcoin", symbol: "BTC", price: "$67,420.50", change: "+2.34%", cap: "$1.32T", icon: "₿", color: "from-orange-500 to-yellow-500" },
                 { rank: 2, name: "Ethereum", symbol: "ETH", price: "$3,812.00", change: "+1.87%", cap: "$458B", icon: "Ξ", color: "from-purple-500 to-blue-500" },
-                { rank: 3, name: "TRADEX", symbol: "24TX", price: coinRateDisplay, change: "Live", cap: "—", icon: "T", color: "from-blue-500 to-cyan-500" },
+                { rank: 3, name: BRAND_NAME, symbol: COIN_SYMBOL, price: coinRateDisplay, change: "Live", cap: "—", icon: "T", color: "from-blue-500 to-cyan-500" },
               ].map((coin, i) => (
                 <tr key={i} className="border-b border-blue-500/10 hover:bg-blue-500/5 transition-colors">
                   <td className="py-4 px-4 text-slate-400">{coin.rank}</td>
@@ -369,15 +372,20 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
         <div className="relative z-10">
           <h2 className="text-5xl md:text-6xl font-black mb-4">
-            Ready to <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">Join TRADEX?</span>
+            Ready to{" "}
+            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
+              Join {BRAND_NAME}?
+            </span>
           </h2>
           <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
-            Buy 24TX at the live admin rate ({coinRateDisplay}) — lock in your position today.
+            {COIN_SYMBOL} tokens are available at the live admin price of{" "}
+            <span className="font-bold text-cyan-400">{coinRateDisplay}</span>
+            {" "}— updates automatically when settings change, no page refresh needed.
           </p>
           {user ? (
             <Link href="/purchase">
               <a className="inline-block px-10 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-lg">
-                BUY 24TX NOW
+                BUY {COIN_SYMBOL} NOW
               </a>
             </Link>
           ) : (
@@ -393,8 +401,10 @@ export default function Home() {
       {/* FOOTER */}
       <footer className="border-t border-blue-500/20 bg-slate-900/50 px-6 md:px-16 lg:px-20 py-12">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="text-xl font-black text-cyan-400 tracking-widest">TRADEX</div>
-          <p className="text-sm text-slate-400 font-mono">© 2025 TRADEX. All rights reserved. Trade responsibly.</p>
+          <div className="text-xl font-black text-cyan-400 tracking-widest">{BRAND_NAME}</div>
+          <p className="text-sm text-slate-400 font-mono">
+            © {new Date().getFullYear()} {BRAND_NAME}. All rights reserved. Trade responsibly.
+          </p>
           <div className="flex items-center gap-4">
             <SocialLinks />
           </div>

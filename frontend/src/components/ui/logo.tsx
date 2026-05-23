@@ -1,3 +1,5 @@
+import { BRAND_NAME } from "@/lib/brand";
+
 interface LogoProps {
   showText?: boolean;
   size?: 'sm' | 'md' | 'lg';
@@ -20,12 +22,12 @@ export function Logo({ showText = true, size = 'md' }: LogoProps) {
     <div className="flex items-center gap-2">
       <img
         src={`${import.meta.env.BASE_URL}logo.png`}
-        alt="TRADEX Logo"
+        alt={`${BRAND_NAME} Logo`}
         className={`${sizeClasses[size]} shrink-0 object-contain`}
       />
       {showText && (
         <span className={`text-white font-bold ${textSize[size]}`}>
-          TRADEX
+          {BRAND_NAME}
         </span>
       )}
     </div>
