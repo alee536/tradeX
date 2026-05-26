@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { usePublicCoinSettings } from "@/hooks/use-public-coin-settings";
+import { useAuth } from "@/hooks/use-auth";
 import {
   useGetSponsorStats,
   useListSponsoredUsers,
   useCreateSponsorAccessRequest,
   getGetSponsorStatsQueryKey,
+  customFetch,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -37,8 +39,13 @@ import {
   Clock,
   AlertCircle,
   Share2,
-  Network,
   Send,
+  TrendingUp,
+  Trophy,
+  Lock,
+  Percent,
+  DollarSign,
+  ShieldCheck,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -67,14 +74,450 @@ function accessStatusLabel(status?: string) {
   }
 }
 
+// ==================== Types ====================
+
+type SponsorRewardRow = {
+  sponsor_id: number;
+  sponsor_name: string;
+  sponsor_username: string;
+  direct_sponsored_count: number;
+  total_direct_sales_usdt: number;
+  reward_percentage: number;
+  calculated_reward_usdt: number;
+  claimed_so_far_usdt: number;
+  outstanding_reward_usdt: number;
+  threshold_usdt: number;
+  is_eligible: boolean;
+  can_claim: boolean;
+  status: "eligible" | "not_eligible" | "claimed";
+  claim?: {
+    id: number;
+    amount_usdt: number;
+    amount_coins: number;
+    coin_rate_at_claim: number;
+    created_at: string;
+  };
+};
+
+type AdminRewardResponse = {
+  is_admin: true;
+  sponsors: SponsorRewardRow[];
+};
+
+type UserRewardResponse = SponsorRewardRow & { is_admin: false };
+
+type RewardResponse = AdminRewardResponse | UserRewardResponse;
+
+const REWARD_KEY = ["sponsor", "reward-summary"] as const;
+
+async function fetchRewardSummary(): Promise<RewardResponse> {
+  return customFetch<RewardResponse>("/sponsor/reward/summary");
+}
+
+async function postRewardClaim(sponsorId?: number): Promise<SponsorRewardRow> {
+  return customFetch<SponsorRewardRow>("/sponsor/reward/claim", {
+    method: "POST",
+    body: JSON.stringify(sponsorId ? { sponsor_id: sponsorId } : {}),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+async function postSetPercentage(sponsorId: number, pct: number): Promise<{ sponsor: SponsorRewardRow }> {
+  return customFetch<{ sponsor: SponsorRewardRow }>("/sponsor/reward/set-percentage", {
+    method: "POST",
+    body: JSON.stringify({ sponsor_id: sponsorId, reward_percentage: pct }),
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+// ==================== Status badge helper ====================
+
+function claimStatusBadge(row: SponsorRewardRow) {
+  switch (row.status) {
+    case "eligible":
+      return { text: "Eligible", className: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
+    case "claimed":
+      return { text: "Claimed", className: "bg-blue-500/20 text-blue-300 border-blue-500/40" };
+    default:
+      return { text: "Not Eligible", className: "bg-white/10 text-muted-foreground border-white/15" };
+  }
+}
+
+// ==================== Admin Table ====================
+
+function AdminSponsorTable() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const [claimingId, setClaimingId] = useState<number | null>(null);
+
+  const summaryQuery = useQuery({
+    queryKey: REWARD_KEY,
+    queryFn: fetchRewardSummary,
+    refetchInterval: 30_000,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: (sponsorId: number) => postRewardClaim(sponsorId),
+    onSuccess: (data) => {
+      toast({
+        title: "Reward claimed",
+        description: `Credited ${formatCurrency(data.claim?.amount_usdt || 0)} for ${data.sponsor_name}.`,
+      });
+      queryClient.invalidateQueries({ queryKey: REWARD_KEY });
+      setClaimingId(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Claim failed", description: err.message, variant: "destructive" });
+      setClaimingId(null);
+    },
+  });
+
+  const pctMutation = useMutation({
+    mutationFn: ({ id, pct }: { id: number; pct: number }) => postSetPercentage(id, pct),
+    onSuccess: (data) => {
+      toast({
+        title: "Percentage updated",
+        description: `Set to ${data.sponsor.reward_percentage}% for ${data.sponsor.sponsor_name}.`,
+      });
+      queryClient.invalidateQueries({ queryKey: REWARD_KEY });
+      setEditingId(null);
+    },
+    onError: (err: Error) => {
+      toast({ title: "Update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (summaryQuery.isLoading) {
+    return (
+      <Card className="glass-panel border-l-4 border-l-emerald-500/60">
+        <CardContent className="p-6 space-y-3">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const data = summaryQuery.data;
+  if (!data || !("is_admin" in data) || !data.is_admin) return null;
+  const sponsors = (data as AdminRewardResponse).sponsors;
+
+  const handleSavePercentage = (sponsorId: number) => {
+    const pct = parseFloat(editValue);
+    if (isNaN(pct) || pct < 0 || pct > 100) {
+      toast({ title: "Invalid percentage", description: "Enter a number between 0 and 100.", variant: "destructive" });
+      return;
+    }
+    pctMutation.mutate({ id: sponsorId, pct });
+  };
+
+  return (
+    <Card className="glass-panel border-l-4 border-l-emerald-500/60 overflow-hidden">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-white/5 bg-gradient-to-r from-emerald-500/5 to-transparent">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <ShieldCheck className="h-5 w-5 text-emerald-400" />
+            Sponsor Reward Table
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Direct sponsor rewards for all sponsors. Set reward % and process claims.
+          </CardDescription>
+        </div>
+        <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shrink-0">
+          {sponsors.length} Sponsor{sponsors.length !== 1 ? "s" : ""}
+        </Badge>
+      </CardHeader>
+      <CardContent className="pt-4">
+        <div className="rounded-lg border border-white/10 overflow-x-auto bg-black/20">
+          <Table>
+            <TableHeader className="bg-emerald-500/5">
+              <TableRow className="border-white/10 hover:bg-transparent">
+                <TableHead>Sponsor</TableHead>
+                <TableHead className="text-center">Direct Sponsored</TableHead>
+                <TableHead className="text-right">Total Direct Sales</TableHead>
+                <TableHead className="text-center">Reward %</TableHead>
+                <TableHead className="text-right">Calculated Reward</TableHead>
+                <TableHead className="text-center">Status</TableHead>
+                <TableHead className="text-center">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sponsors.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="h-28 text-center">
+                    <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                      <Users className="h-8 w-8 opacity-30" />
+                      <span>No sponsors with direct referrals yet.</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                sponsors.map((row, idx) => {
+                  const badge = claimStatusBadge(row);
+                  const isEditing = editingId === row.sponsor_id;
+                  const isClaiming = claimingId === row.sponsor_id && claimMutation.isPending;
+
+                  return (
+                    <TableRow
+                      key={row.sponsor_id}
+                      className="border-white/5 hover:bg-emerald-500/5 transition-colors animate-in fade-in fill-mode-both"
+                      style={{ animationDelay: `${idx * 30}ms`, animationDuration: "350ms" }}
+                    >
+                      <TableCell>
+                        <div className="font-medium text-white">{row.sponsor_name}</div>
+                        <div className="text-xs text-muted-foreground">@{row.sponsor_username}</div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className="inline-flex items-center gap-1 font-semibold text-violet-300">
+                          <Users className="h-3.5 w-3.5" />
+                          {row.direct_sponsored_count}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right font-mono text-cyan-300/90">
+                        {formatCurrency(row.total_direct_sales_usdt)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {isEditing ? (
+                          <div className="flex items-center gap-1 justify-center">
+                            <Input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={0.01}
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-20 h-8 text-center bg-black/40 border-emerald-500/30 text-white text-sm"
+                              autoFocus
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") handleSavePercentage(row.sponsor_id);
+                                if (e.key === "Escape") setEditingId(null);
+                              }}
+                            />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 px-2 text-emerald-400 hover:text-emerald-300"
+                              onClick={() => handleSavePercentage(row.sponsor_id)}
+                              disabled={pctMutation.isPending}
+                            >
+                              {pctMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                            </Button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => {
+                              setEditingId(row.sponsor_id);
+                              setEditValue(String(row.reward_percentage));
+                            }}
+                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-sm font-medium text-amber-300 hover:bg-amber-500/10 transition-colors cursor-pointer"
+                            title="Click to edit"
+                          >
+                            <Percent className="h-3 w-3" />
+                            {row.reward_percentage}%
+                          </button>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-mono font-semibold text-amber-300">
+                        {formatCurrency(row.calculated_reward_usdt)}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge className={`${badge.className} text-xs`}>{badge.text}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          size="sm"
+                          disabled={!row.can_claim || isClaiming}
+                          onClick={() => {
+                            setClaimingId(row.sponsor_id);
+                            claimMutation.mutate(row.sponsor_id);
+                          }}
+                          className={
+                            row.can_claim
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
+                              : "bg-white/5 text-muted-foreground border border-white/10 cursor-not-allowed text-xs"
+                          }
+                        >
+                          {isClaiming ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : row.can_claim ? (
+                            <>
+                              <Gift className="h-3.5 w-3.5 mr-1" />
+                              Claim
+                            </>
+                          ) : (
+                            <>
+                              <Lock className="h-3.5 w-3.5 mr-1" />
+                              Disabled
+                            </>
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== Normal User Summary Cards ====================
+
+function UserRewardSummary() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const summaryQuery = useQuery({
+    queryKey: REWARD_KEY,
+    queryFn: fetchRewardSummary,
+    refetchInterval: 30_000,
+  });
+
+  const claimMutation = useMutation({
+    mutationFn: () => postRewardClaim(),
+    onSuccess: (data) => {
+      toast({
+        title: "Reward claimed",
+        description: `Credited ${formatCrypto(data.claim?.amount_coins || 0)} (${formatCurrency(data.claim?.amount_usdt || 0)}) to your wallet.`,
+      });
+      queryClient.invalidateQueries({ queryKey: REWARD_KEY });
+      queryClient.invalidateQueries({ queryKey: getGetSponsorStatsQueryKey() });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Claim failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  if (summaryQuery.isLoading) {
+    return (
+      <Card className="glass-panel border-l-4 border-l-emerald-500/60">
+        <CardContent className="p-6">
+          <Skeleton className="h-32 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const data = summaryQuery.data;
+  if (!data || ("is_admin" in data && data.is_admin)) return null;
+  const summary = data as UserRewardResponse;
+
+  const badge = claimStatusBadge(summary);
+
+  return (
+    <Card className="glass-panel border-l-4 border-l-emerald-500/60">
+      <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-white/5 bg-gradient-to-r from-emerald-500/5 to-transparent">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-white">
+            <Trophy className="h-5 w-5 text-emerald-400" />
+            Direct Sponsor Reward
+          </CardTitle>
+          <CardDescription className="mt-1">
+            Earn {summary.reward_percentage}% on the total purchases of your direct sponsored users.
+            {summary.threshold_usdt > 0 && (
+              <> Activates after {formatCurrency(summary.threshold_usdt)} in direct team sales.</>
+            )}
+          </CardDescription>
+        </div>
+        <Badge className={badge.className}>{badge.text}</Badge>
+      </CardHeader>
+      <CardContent className="space-y-4 p-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-white/5 bg-black/30 p-4">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+              <Users className="h-3 w-3" /> Direct Sponsored
+            </div>
+            <div className="mt-2 text-2xl font-bold text-white">{summary.direct_sponsored_count}</div>
+          </div>
+          <div className="rounded-lg border border-white/5 bg-black/30 p-4">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+              <TrendingUp className="h-3 w-3" /> Total Direct Sales
+            </div>
+            <div className="mt-2 text-2xl font-bold text-white">
+              {formatCurrency(summary.total_direct_sales_usdt)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/5 bg-black/30 p-4">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+              <Percent className="h-3 w-3" /> Reward Percentage
+            </div>
+            <div className="mt-2 text-2xl font-bold text-amber-300">{summary.reward_percentage}%</div>
+          </div>
+          <div className="rounded-lg border border-white/5 bg-black/30 p-4">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+              <DollarSign className="h-3 w-3" /> Calculated Reward
+            </div>
+            <div className="mt-2 text-2xl font-bold text-emerald-300">
+              {formatCurrency(summary.calculated_reward_usdt)}
+            </div>
+            {summary.claimed_so_far_usdt > 0 && (
+              <div className="mt-1 text-[11px] text-muted-foreground">
+                Claimed so far {formatCurrency(summary.claimed_so_far_usdt)}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {summary.outstanding_reward_usdt > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+            <p className="text-xs text-muted-foreground max-w-xl">
+              Outstanding reward: {formatCurrency(summary.outstanding_reward_usdt)}.
+              {summary.can_claim
+                ? " Click the button to claim and credit coins to your wallet."
+                : " Conditions not yet met for claiming."}
+            </p>
+            <Button
+              onClick={() => claimMutation.mutate()}
+              disabled={!summary.can_claim || claimMutation.isPending}
+              className={
+                summary.can_claim
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                  : "bg-white/10 text-muted-foreground border border-white/10 cursor-not-allowed"
+              }
+            >
+              {claimMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing…
+                </>
+              ) : summary.can_claim ? (
+                <>
+                  <Gift className="mr-2 h-4 w-4" />
+                  Claim {formatCurrency(summary.outstanding_reward_usdt)}
+                </>
+              ) : (
+                <>
+                  <Lock className="mr-2 h-4 w-4" />
+                  Claim locked
+                </>
+              )}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ==================== Main Page ====================
+
 export default function Sponsor() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const isAdmin = user?.is_admin === true;
 
   const { data: stats, isLoading: loadingStats, refetch: refetchStats } = useGetSponsorStats();
   const { data: users, isLoading: loadingUsers } = useListSponsoredUsers({
@@ -164,7 +607,7 @@ export default function Sponsor() {
         <div className="absolute -bottom-12 -left-12 h-40 w-40 rounded-full bg-cyan-500/15 blur-3xl animate-pulse pointer-events-none [animation-delay:1s]" />
         <div className="relative flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-violet-500/20 border border-violet-400/30 shadow-[0_0_24px_rgba(139,92,246,0.35)]">
-            <Network className="h-7 w-7 text-violet-300" />
+            <Users className="h-7 w-7 text-violet-300" />
           </div>
           <div className="flex-1">
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-violet-200 via-cyan-200 to-violet-100 bg-clip-text text-transparent">
@@ -194,7 +637,7 @@ export default function Sponsor() {
         />
         <SponsorStatCard
           icon={<Users className="h-6 w-6" />}
-          label="Total network"
+          label="Direct sponsored"
           value={stats?.total_sponsored ?? 0}
           accent="violet"
           loading={loadingStats}
@@ -210,13 +653,16 @@ export default function Sponsor() {
         />
         <SponsorStatCard
           icon={<Share2 className="h-6 w-6" />}
-          label="Network purchases"
+          label="Team purchases"
           value={stats?.sponsored_purchases ?? 0}
           accent="cyan"
           loading={loadingStats}
           delayMs={240}
         />
       </div>
+
+      {/* Role-based reward section */}
+      {isAdmin ? <AdminSponsorTable /> : <UserRewardSummary />}
 
       {/* Access card + pipeline */}
       <Card className="glass-panel border-l-4 border-l-violet-500/60 overflow-hidden">

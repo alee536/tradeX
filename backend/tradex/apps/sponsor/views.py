@@ -2,6 +2,8 @@
 ============== Sponsor API (APIView) ==============
 """
 
+from decimal import Decimal, InvalidOperation
+
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -20,6 +22,12 @@ from .access import (
     serialize_access_status,
 )
 from .models import SponsorAccessRequest
+from .rewards import (
+    SponsorRewardError,
+    claim_sponsor_reward,
+    compute_all_sponsors_summary,
+    compute_sponsor_reward_summary,
+)
 
 
 class SponsorStatsView(APIView):
@@ -150,4 +158,108 @@ class PublicSponsorRefView(APIView):
             'sponsor_code': sponsor.sponsor_code,
             'sponsor_username': sponsor.username,
             'register_path': f"/register?ref={sponsor.sponsor_ref_slug}",
+        })
+
+
+class SponsorRewardSummaryView(APIView):
+    """
+    GET direct-level sponsor reward summary.
+
+    Admin / superuser  → array of ALL sponsors' direct reward data (full table).
+    Normal user        → single object with own direct reward data only.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        is_admin = user.is_staff or user.is_superuser
+
+        try:
+            if is_admin:
+                rows = compute_all_sponsors_summary()
+                return Response({'is_admin': True, 'sponsors': rows})
+            else:
+                payload = compute_sponsor_reward_summary(user)
+                payload['is_admin'] = False
+                return Response(payload)
+        except Exception as exc:
+            return Response(
+                {'error': 'Unable to compute reward summary.', 'detail': str(exc)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class SponsorRewardClaimView(APIView):
+    """POST atomically claim outstanding direct-level reward."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        claim_user_id = request.data.get('sponsor_id')
+        user = request.user
+
+        if claim_user_id and (user.is_staff or user.is_superuser):
+            try:
+                user = User.objects.get(pk=int(claim_user_id))
+            except (User.DoesNotExist, ValueError, TypeError):
+                return Response(
+                    {'error': 'Sponsor user not found.'},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+        try:
+            payload = claim_sponsor_reward(user)
+        except SponsorRewardError as exc:
+            return Response({'error': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(payload, status=status.HTTP_201_CREATED)
+
+
+class AdminSetRewardPercentageView(APIView):
+    """POST set per-sponsor reward percentage (admin only)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if not (user.is_staff or user.is_superuser):
+            return Response(
+                {'error': 'Admin access required.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        sponsor_id = request.data.get('sponsor_id')
+        percentage = request.data.get('reward_percentage')
+
+        if not sponsor_id:
+            return Response(
+                {'error': 'sponsor_id is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            pct = Decimal(str(percentage))
+            if pct < 0 or pct > 100:
+                raise ValueError
+        except (InvalidOperation, ValueError, TypeError):
+            return Response(
+                {'error': 'reward_percentage must be a number between 0 and 100.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            sponsor = User.objects.get(pk=int(sponsor_id))
+        except (User.DoesNotExist, ValueError, TypeError):
+            return Response(
+                {'error': 'Sponsor user not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        sponsor.sponsor_reward_percentage = pct
+        sponsor.save(update_fields=['sponsor_reward_percentage'])
+
+        summary = compute_sponsor_reward_summary(sponsor)
+        return Response({
+            'message': f'Reward percentage set to {pct}% for {sponsor.username}.',
+            'sponsor': summary,
         })

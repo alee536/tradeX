@@ -86,3 +86,60 @@ class SponsorAccessRequest(models.Model):
 
     def __str__(self):
         return f"SponsorRequest user={self.user_id} slug={self.ref_slug} status={self.status}"
+
+
+class SponsorRewardClaim(models.Model):
+    """
+    ============== Multi-level sponsor reward claim ==============
+
+    Ledger row written each time a sponsor claims accumulated reward
+    earned across their FULL downline tree (all levels).
+
+    Reward formula (per claim):
+        gross_reward_usdt = total_investment_usdt × reward_percentage / 100
+        outstanding_usdt  = gross_reward_usdt - sum(prior approved claims)
+
+    The view layer locks the user row (select_for_update) before
+    recomputing outstanding so concurrent clicks cannot double-claim.
+    """
+
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='multi_level_reward_claims',
+    )
+
+    # Snapshot of the inputs at claim time (audit trail)
+    total_investment_usdt = models.DecimalField(max_digits=20, decimal_places=8)
+    reward_percentage = models.DecimalField(max_digits=5, decimal_places=2)
+    gross_reward_usdt = models.DecimalField(max_digits=20, decimal_places=8)
+
+    # The actual credit applied to the user's wallet at claim time
+    amount_usdt = models.DecimalField(max_digits=20, decimal_places=8)
+    amount_coins = models.DecimalField(max_digits=20, decimal_places=8)
+    coin_rate_at_claim = models.DecimalField(max_digits=20, decimal_places=8)
+
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default=STATUS_APPROVED,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', '-created_at'], name='spnreward_user_ct_idx'),
+        ]
+
+    def __str__(self):
+        return f"SponsorRewardClaim user={self.user_id} amount_usdt={self.amount_usdt} status={self.status}"

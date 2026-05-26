@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "wouter";
+import { Copy, Check } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { usePublicCoinSettings } from "@/hooks/use-public-coin-settings";
 import { SocialLinks } from "@/components/ui/social-links";
@@ -10,6 +11,10 @@ import {
   landingProfitPercent,
   planReturnAmount,
 } from "@/lib/home-public-settings";
+
+const CONTRACT_ADDRESS = "0x929303626e3a528406f4b66f6e2b428a99c9022d";
+const PANCAKESWAP_BUY_URL =
+  "https://pancakeswap.finance/swap?outputCurrency=0x929303626E3A528406f4b66F6E2b428A99C9022D&inputCurrency=0x55d398326f99059fF775485246999027B3197955";
 
 const HOME_FEATURES = [
   { icon: "⚡", title: "INSTANT EXECUTION", desc: "Trades execute in milliseconds. Our matching engine handles 100,000+ transactions per second." },
@@ -30,6 +35,29 @@ const INVESTMENT_PLANS = [
 export default function Home() {
   const { user } = useAuth();
   const [investment, setInvestment] = useState(100);
+  const [contractCopied, setContractCopied] = useState(false);
+
+  const handleCopyContract = async () => {
+    try {
+      await navigator.clipboard.writeText(CONTRACT_ADDRESS);
+    } catch {
+      const fallback = document.createElement("textarea");
+      fallback.value = CONTRACT_ADDRESS;
+      fallback.setAttribute("readonly", "");
+      fallback.style.position = "absolute";
+      fallback.style.left = "-9999px";
+      document.body.appendChild(fallback);
+      fallback.select();
+      try {
+        document.execCommand("copy");
+      } catch {
+        /* ignore copy failures */
+      }
+      document.body.removeChild(fallback);
+    }
+    setContractCopied(true);
+    window.setTimeout(() => setContractCopied(false), 2000);
+  };
 
   const { data: publicSettings } = usePublicCoinSettings();
 
@@ -377,24 +405,54 @@ export default function Home() {
               Join {BRAND_NAME}?
             </span>
           </h2>
-          <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+          <p className="text-xl text-slate-300 mb-6 max-w-2xl mx-auto">
             {COIN_SYMBOL} tokens are available at the live admin price of{" "}
             <span className="font-bold text-cyan-400">{coinRateDisplay}</span>
             {" "}— updates automatically when settings change, no page refresh needed.
           </p>
-          {user ? (
-            <Link href="/purchase">
-              <a className="inline-block px-10 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-lg">
+
+          <div className="mb-8 inline-flex max-w-full flex-col items-center gap-2 sm:flex-row sm:items-center sm:gap-3 bg-slate-900/70 border border-blue-500/30 rounded-lg px-4 py-3">
+            <span className="text-xs uppercase tracking-widest text-slate-400">
+              Contract address
+            </span>
+            <code className="font-mono text-xs sm:text-sm text-cyan-300 break-all">
+              {CONTRACT_ADDRESS}
+            </code>
+            <button
+              type="button"
+              onClick={handleCopyContract}
+              aria-label="Copy contract address"
+              className="inline-flex items-center justify-center rounded-md border border-blue-500/30 bg-blue-500/10 px-2 py-1 text-cyan-300 hover:bg-blue-500/20 transition-colors"
+            >
+              {contractCopied ? (
+                <Check className="h-4 w-4 text-green-400" />
+              ) : (
+                <Copy className="h-4 w-4" />
+              )}
+              <span className="ml-1 text-xs font-semibold">
+                {contractCopied ? "Copied" : "Copy"}
+              </span>
+            </button>
+          </div>
+
+          <div>
+            {user ? (
+              <a
+                href={PANCAKESWAP_BUY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-10 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-lg"
+              >
                 BUY {COIN_SYMBOL} NOW
               </a>
-            </Link>
-          ) : (
-            <Link href="/register">
-              <a className="inline-block px-10 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-lg">
-                CREATE FREE ACCOUNT
-              </a>
-            </Link>
-          )}
+            ) : (
+              <Link href="/register">
+                <a className="inline-block px-10 py-4 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold rounded-lg hover:shadow-lg hover:shadow-blue-500/50 transition-all text-lg">
+                  CREATE FREE ACCOUNT
+                </a>
+              </Link>
+            )}
+          </div>
         </div>
       </section>
 
