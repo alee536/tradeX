@@ -39,6 +39,12 @@ class SystemSettings(models.Model):
         default=5,
         help_text='One-time USDT fee for sponsor link access',
     )
+    sponsor_reward_threshold_usdt = models.DecimalField(
+        max_digits=20,
+        decimal_places=8,
+        default=1000,
+        help_text='Minimum total downline investment (USDT) required to activate the multi-level sponsor reward claim button.',
+    )
 
     # ============== Profit / Reward System (admin-controlled) ==============
     profit_enabled = models.BooleanField(

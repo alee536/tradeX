@@ -69,6 +69,10 @@ class User(AbstractUser):
     wallet_address = models.CharField(max_length=255, blank=True, null=True)
     is_banned = models.BooleanField(default=False)
     sponsor_earnings = models.DecimalField(max_digits=20, decimal_places=8, default=0)
+    sponsor_reward_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, null=True, blank=True,
+        help_text='Admin-defined reward % for this sponsor. Falls back to global sponsor_percentage if null.',
+    )
     sponsored_by = models.ForeignKey(
         'self', null=True, blank=True,
         on_delete=models.SET_NULL,
