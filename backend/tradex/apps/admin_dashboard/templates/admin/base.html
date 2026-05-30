@@ -369,6 +369,11 @@
             transition: background-color 0.2s ease;
         }
 
+        /* Bootstrap text-muted is too dark on the admin dark theme */
+        .text-muted {
+            color: #94a3b8 !important;
+        }
+
         /* Buttons */
         .btn {
             border-radius: 8px;
@@ -867,8 +872,8 @@
             </li>
             <li>
                 <a href="{% url 'admin_dashboard:sponsor_report' %}" class="{% if request.resolver_match.url_name == 'sponsor_report' %}active{% endif %}">
-                    <i class="bi bi-table"></i>
-                    <span>Sponsor Report</span>
+                    <i class="bi bi-sliders"></i>
+                    <span>Sponsor Settings</span>
                 </a>
             </li>
             <li>
