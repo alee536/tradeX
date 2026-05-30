@@ -19,6 +19,7 @@ from django.db.models.functions import Coalesce
 
 from apps.accounts.models import User
 from apps.purchases.models import Purchase
+from apps.settings_app.models import SystemSettings
 from apps.withdrawals.models import Withdrawal
 
 WITHDRAWAL_STATUSES = ('pending', 'approved', 'completed')
@@ -66,8 +67,9 @@ def _sponsor_base_queryset(search: str | None = None):
     return qs
 
 
-def _serialize_row(sponsor: User, metrics: dict[str, Any]) -> dict[str, Any]:
+def _serialize_row(sponsor: User, metrics: dict[str, Any], default_reward_percentage: float) -> dict[str, Any]:
     display_name = (sponsor.full_name or sponsor.username or '').strip() or sponsor.username
+    reward_percentage = float(sponsor.sponsor_reward_percentage or default_reward_percentage)
     return {
         'sponsor_id': sponsor.id,
         'sponsor_name': display_name,
@@ -79,6 +81,7 @@ def _serialize_row(sponsor: User, metrics: dict[str, Any]) -> dict[str, Any]:
         'total_investment_usdt': metrics['investment_usdt'],
         'total_investment_coins': metrics['investment_coins'],
         'total_earning': metrics['sponsor_earnings'],
+        'reward_percentage': reward_percentage,
         'downline_withdrawals_usdt': metrics['withdrawals_usdt'],
         'other_details': {
             'active_downline_users': metrics['active_downline'],
@@ -329,6 +332,8 @@ def get_sponsor_report_rows(
     *,
     search: str | None = None,
     order_by: str = '-total_investment_usdt',
+    min_investment_usdt: float | None = None,
+    min_reward_percentage: float | None = None,
 ) -> list[dict[str, Any]]:
     """
     Build flat sponsor report rows for admin dashboards and APIs.
@@ -343,11 +348,19 @@ def get_sponsor_report_rows(
     sponsor_ids = [s.id for s in sponsors]
     metrics_map = _fetch_downline_metrics(sponsor_ids)
 
+    settings_obj = SystemSettings.get_settings()
+    default_reward_percentage = float(settings_obj.sponsor_percentage or 0)
+
     rows: list[dict[str, Any]] = []
     for sponsor in sponsors:
         base = metrics_map.get(sponsor.id, {})
         base['sponsor_earnings'] = float(sponsor.sponsor_earnings or 0)
-        rows.append(_serialize_row(sponsor, base))
+        rows.append(_serialize_row(sponsor, base, default_reward_percentage))
+
+    if min_investment_usdt is not None:
+        rows = [row for row in rows if row['total_investment_usdt'] >= min_investment_usdt]
+    if min_reward_percentage is not None:
+        rows = [row for row in rows if row['reward_percentage'] >= min_reward_percentage]
 
     reverse = order_by.startswith('-')
     key_name = order_by.lstrip('-')

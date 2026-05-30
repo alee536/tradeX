@@ -13,7 +13,73 @@
 
 <div class="row mb-4">
     <div class="col-md-12">
+        <div class="admin-panel admin-animate-in admin-delay-1" style="padding: 20px;">
+            <div class="admin-panel-title">
+                <i class="bi bi-gear"></i> Profit / Reward System
+            </div>
+            <form method="post" class="row g-3 align-items-end">
+                {% csrf_token %}
+                <div class="col-md-12">
+                    <div class="form-check form-switch" style="padding-left: 0; margin-bottom: 18px;">
+                        <input class="form-check-input" type="checkbox" id="profit_enabled" name="profit_enabled" {% if settings.profit_enabled %}checked{% endif %}>
+                        <label class="form-check-label" for="profit_enabled" style="color: #cbd5e1;">
+                            Enable profit system for users
+                        </label>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="color: #94a3b8; font-size: 13px;">Profit percentage (%)</label>
+                    <input type="number" step="0.01" min="0" max="100" name="profit_percentage" class="form-control" value="{{ settings.profit_percentage }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="color: #94a3b8; font-size: 13px;">Reward cycle hours</label>
+                    <input type="number" min="1" name="profit_cycle_hours" class="form-control" value="{{ settings.profit_cycle_hours }}">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-save"></i> Save Reward Settings
+                    </button>
+                </div>
+                <div class="col-md-12">
+                    <small style="color: #94a3b8;">The profit/reward settings are now managed from Sponsor Report, not Coin Settings.</small>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="admin-panel admin-animate-in admin-delay-1" style="padding: 20px;">
+            <div class="admin-panel-title">
+                <i class="bi bi-bar-chart-line"></i> Reward filters
+            </div>
+            <form method="get" class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label" style="color: #94a3b8; font-size: 13px;">Reward on investment (USDT)</label>
+                    <input type="number" step="1" min="0" name="reward_investment_usdt" class="form-control"
+                           placeholder="e.g. 1000" value="{{ reward_investment_usdt }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label" style="color: #94a3b8; font-size: 13px;">Reward percentage</label>
+                    <input type="number" step="0.1" min="0" max="100" name="reward_percentage" class="form-control"
+                           placeholder="e.g. 5" value="{{ reward_percentage }}">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-circle"></i> Apply
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-12">
         <form method="get" class="row g-3 align-items-end">
+            <input type="hidden" name="reward_investment_usdt" value="{{ reward_investment_usdt }}">
+            <input type="hidden" name="reward_percentage" value="{{ reward_percentage }}">
             <div class="col-md-5">
                 <label class="form-label" style="color: #94a3b8; font-size: 13px;">Search sponsor</label>
                 <input type="text" name="search" class="form-control"
@@ -30,7 +96,7 @@
             </div>
             <div class="col-md-3">
                 <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-funnel"></i> Apply
+                    <i class="bi bi-funnel"></i> Filter
                 </button>
             </div>
         </form>
@@ -46,7 +112,6 @@
                 <th>Direct</th>
                 <th>Total Investment (USDT)</th>
                 <th>Total Earning (Commission)</th>
-                <th>Other Details</th>
                 <th>Actions</th>
             </tr>
         </thead>
@@ -61,28 +126,15 @@
                     <td>{{ row.direct_sponsored_count }}</td>
                     <td>${{ row.total_investment_usdt|floatformat:2 }}</td>
                     <td>{{ row.total_earning|floatformat:8 }} <small style="color: #94a3b8;">coins</small></td>
-                    <td style="font-size: 12px; color: #94a3b8; max-width: 220px;">
-                        Active downline: {{ row.other_details.active_downline_users }}<br>
-                        Downline withdrawals: ${{ row.downline_withdrawals_usdt|floatformat:2 }}<br>
-                        Coins invested: {{ row.total_investment_coins|floatformat:4 }}<br>
-                        {% if row.other_details.sponsor_ref_slug %}
-                            Ref: /ref/{{ row.other_details.sponsor_ref_slug }}
-                        {% endif %}
-                    </td>
                     <td>
-                        <div class="d-flex flex-column gap-1">
-                            <a href="{% url 'admin_dashboard:user_detail' row.sponsor_id %}" class="btn btn-primary btn-sm">
-                                <i class="bi bi-eye"></i> Profile
-                            </a>
-                            <a href="{% url 'admin_dashboard:sponsor_hierarchy' row.sponsor_id %}" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-diagram-3"></i> Hierarchy
-                            </a>
-                        </div>
+                        <a href="{% url 'admin_dashboard:user_detail' row.sponsor_id %}" class="btn btn-primary btn-sm">
+                            <i class="bi bi-eye"></i> Profile
+                        </a>
                     </td>
                 </tr>
             {% empty %}
                 <tr>
-                    <td colspan="7" class="text-center py-5">
+                    <td colspan="6" class="text-center py-5">
                         <p style="color: #94a3b8;">No sponsors found.</p>
                     </td>
                 </tr>
