@@ -336,6 +336,58 @@ def sponsor_users_list(request):
 @admin_required
 def sponsor_report_list(request):
     """Flat sponsor-wise performance summary (full downline, no tree UI)."""
+    settings = SystemSettings.get_settings()
+
+    if request.method == 'POST':
+        form_type = request.POST.get('form_type', 'sponsor_reward')
+
+        try:
+            if form_type == 'profit':
+                profit_enabled = request.POST.get('profit_enabled') == 'on'
+                profit_percentage = request.POST.get('profit_percentage')
+                profit_cycle_hours = request.POST.get('profit_cycle_hours')
+
+                settings.profit_enabled = profit_enabled
+                if profit_percentage is not None and profit_percentage != '':
+                    pct = Decimal(profit_percentage)
+                    if pct < 0 or pct > 100:
+                        messages.error(request, 'Profit percentage must be between 0 and 100.')
+                        return redirect('admin_dashboard:sponsor_report')
+                    settings.profit_percentage = pct
+                if profit_cycle_hours:
+                    cycle_h = int(profit_cycle_hours)
+                    if cycle_h < 1:
+                        messages.error(request, 'Profit cycle hours must be at least 1.')
+                        return redirect('admin_dashboard:sponsor_report')
+                    settings.profit_cycle_hours = cycle_h
+
+                settings.save()
+                messages.success(request, 'Profit / reward settings updated successfully.')
+            else:
+                sponsor_percentage = request.POST.get('sponsor_percentage')
+                sponsor_reward_threshold_usdt = request.POST.get('sponsor_reward_threshold_usdt')
+
+                if sponsor_percentage is not None and sponsor_percentage != '':
+                    pct = Decimal(sponsor_percentage)
+                    if pct < 0 or pct > 100:
+                        messages.error(request, 'Reward percentage must be between 0 and 100.')
+                        return redirect('admin_dashboard:sponsor_report')
+                    settings.sponsor_percentage = pct
+
+                if sponsor_reward_threshold_usdt is not None and sponsor_reward_threshold_usdt != '':
+                    threshold = Decimal(sponsor_reward_threshold_usdt)
+                    if threshold < 0:
+                        messages.error(request, 'Reward on investment cannot be negative.')
+                        return redirect('admin_dashboard:sponsor_report')
+                    settings.sponsor_reward_threshold_usdt = threshold
+
+                settings.save()
+                messages.success(request, 'Sponsor reward settings updated successfully.')
+        except (InvalidOperation, ValueError, TypeError) as exc:
+            messages.error(request, str(exc))
+
+        return redirect('admin_dashboard:sponsor_report')
+
     search = request.GET.get('search', '').strip()
     order_by = request.GET.get('order_by', '-total_investment_usdt')
     allowed_order = {
@@ -357,6 +409,7 @@ def sponsor_report_list(request):
         'rows': rows,
         'search': search,
         'order_by': order_by,
+        'settings': settings,
         'order_options': [
             ('-total_investment_usdt', 'Investment (high → low)'),
             ('total_investment_usdt', 'Investment (low → high)'),
@@ -518,9 +571,6 @@ def coin_settings(request):
         stage3_hours = request.POST.get('stage3_hours')
         stage1_percent = request.POST.get('stage1_percent')
         stage2_percent = request.POST.get('stage2_percent')
-        profit_enabled = request.POST.get('profit_enabled') == 'on'
-        profit_percentage = request.POST.get('profit_percentage')
-        profit_cycle_hours = request.POST.get('profit_cycle_hours')
 
         try:
             if new_rate:
@@ -545,20 +595,6 @@ def coin_settings(request):
                 messages.error(request, 'Stage 1 and Stage 2 percentages cannot exceed 100%.')
                 return render(request, 'admin/coin_settings.html', {'settings': settings})
             settings.stage3_percent = remainder_percent
-
-            settings.profit_enabled = profit_enabled
-            if profit_percentage is not None and profit_percentage != '':
-                pct = Decimal(profit_percentage)
-                if pct < 0 or pct > 100:
-                    messages.error(request, 'Profit percentage must be between 0 and 100.')
-                    return render(request, 'admin/coin_settings.html', {'settings': settings})
-                settings.profit_percentage = pct
-            if profit_cycle_hours:
-                cycle_h = int(profit_cycle_hours)
-                if cycle_h < 1:
-                    messages.error(request, 'Profit cycle hours must be at least 1.')
-                    return render(request, 'admin/coin_settings.html', {'settings': settings})
-                settings.profit_cycle_hours = cycle_h
 
             settings.save()
             

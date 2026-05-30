@@ -1,93 +1,167 @@
 {% extends "admin/base.html" %}
 
-{% block title %}Sponsor Report - 24TradeX Admin{% endblock %}
+{% block title %}Sponsor Settings - 24TradeX Admin{% endblock %}
 
 {% block content %}
 <div class="header">
-    <h1><i class="bi bi-table"></i> Sponsor Report</h1>
+    <h1><i class="bi bi-sliders"></i> Sponsor Settings</h1>
     <p style="color: #94a3b8; margin-top: 4px;">
-        Flat sponsor-wise summary. Each row includes the full downline (direct + indirect referrals).
-        Child sponsors who also refer users appear on their own row.
+        Configure sponsor rewards, profit rules, and review sponsor performance.
     </p>
 </div>
 
-<div class="row mb-4">
-    <div class="col-md-12">
-        <form method="get" class="row g-3 align-items-end">
+<div class="admin-panel admin-animate-in mb-4">
+    <div class="admin-panel-title">
+        <i class="bi bi-gift"></i> Sponsor Reward
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="sponsor_reward">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" for="sponsor_reward_threshold_usdt">Reward on Investment (USDT)</label>
+                <input type="number" step="0.01" min="0" class="form-control" id="sponsor_reward_threshold_usdt"
+                       name="sponsor_reward_threshold_usdt" value="{{ settings.sponsor_reward_threshold_usdt }}"
+                       placeholder="e.g. 1000 or 1500">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="sponsor_percentage">Reward Percentage (%)</label>
+                <input type="number" step="0.01" min="0" max="100" class="form-control" id="sponsor_percentage"
+                       name="sponsor_percentage" value="{{ settings.sponsor_percentage }}"
+                       placeholder="e.g. 5 or 10">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label d-block">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-check-lg"></i> Apply
+                </button>
+            </div>
+        </div>
+        <div class="row g-2 mt-1">
+            <div class="col-md-4">
+                <small style="color: #94a3b8;">Minimum direct team sales before claim activates</small>
+            </div>
+            <div class="col-md-4">
+                <small style="color: #94a3b8;">Default % on direct team investment</small>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="admin-panel admin-animate-in mb-4">
+    <div class="admin-panel-title">
+        <i class="bi bi-graph-up-arrow"></i> Profit / Reward System
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="form_type" value="profit">
+        <div class="mb-3">
+            <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="profit_enabled" name="profit_enabled" {% if settings.profit_enabled %}checked{% endif %}>
+                <label class="form-check-label" for="profit_enabled">Enable profit system for users</label>
+            </div>
+        </div>
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label" for="profit_percentage">Profit Percentage (%)</label>
+                <input type="number" step="0.01" min="0" max="100" class="form-control" id="profit_percentage"
+                       name="profit_percentage" value="{{ settings.profit_percentage }}"
+                       placeholder="e.g. 10">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" for="profit_cycle_hours">Reward Cycle (hours)</label>
+                <input type="number" min="1" class="form-control" id="profit_cycle_hours"
+                       name="profit_cycle_hours" value="{{ settings.profit_cycle_hours }}"
+                       placeholder="e.g. 72">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label d-block">&nbsp;</label>
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-check-lg"></i> Apply
+                </button>
+            </div>
+        </div>
+        <div class="row g-2 mt-1">
+            <div class="col-md-4">
+                <small style="color: #94a3b8;">Example: 10% on 100 USDT → 110 USDT after cycle</small>
+            </div>
+            <div class="col-md-4">
+                <small style="color: #94a3b8;">Hours after coin assignment until next reward</small>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div class="admin-panel admin-animate-in mb-4">
+    <div class="admin-panel-title">
+        <i class="bi bi-funnel"></i> Filter & search
+    </div>
+    <form method="get">
+        <div class="row g-3 align-items-end">
             <div class="col-md-5">
-                <label class="form-label" style="color: #94a3b8; font-size: 13px;">Search sponsor</label>
-                <input type="text" name="search" class="form-control"
+                <label class="form-label" for="sponsor_search">Search sponsor</label>
+                <input type="text" id="sponsor_search" name="search" class="form-control"
                        placeholder="Name, username, email, or ID"
                        value="{{ search }}">
             </div>
             <div class="col-md-4">
-                <label class="form-label" style="color: #94a3b8; font-size: 13px;">Sort by</label>
-                <select name="order_by" class="form-select">
+                <label class="form-label" for="sponsor_order_by">Sort by</label>
+                <select id="sponsor_order_by" name="order_by" class="form-select">
                     {% for value, label in order_options %}
                         <option value="{{ value }}" {% if order_by == value %}selected{% endif %}>{{ label }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-3">
+                <label class="form-label d-block">&nbsp;</label>
                 <button type="submit" class="btn btn-primary w-100">
                     <i class="bi bi-funnel"></i> Apply
                 </button>
             </div>
-        </form>
-    </div>
+        </div>
+    </form>
 </div>
 
-<div class="table-responsive">
-    <table class="table">
-        <thead>
-            <tr>
-                <th>Sponsor Name</th>
-                <th>No. of Sponsored Users</th>
-                <th>Direct</th>
-                <th>Total Investment (USDT)</th>
-                <th>Total Earning (Commission)</th>
-                <th>Other Details</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for row in rows %}
+<div class="admin-panel admin-animate-in" style="padding:0;overflow:hidden;">
+    <div class="admin-panel-title" style="padding:16px 20px;margin:0;border-bottom:1px solid var(--border-color);">
+        <i class="bi bi-table"></i> Sponsor Report
+    </div>
+    <div class="table-responsive">
+        <table class="table mb-0">
+            <thead>
                 <tr>
-                    <td>
-                        <strong>{{ row.sponsor_name }}</strong><br>
-                        <small style="color: #94a3b8;">@{{ row.sponsor_username }} · {{ row.sponsor_unique_id }}</small>
-                    </td>
-                    <td><span class="badge bg-info">{{ row.sponsored_users_count }}</span></td>
-                    <td>{{ row.direct_sponsored_count }}</td>
-                    <td>${{ row.total_investment_usdt|floatformat:2 }}</td>
-                    <td>{{ row.total_earning|floatformat:8 }} <small style="color: #94a3b8;">coins</small></td>
-                    <td style="font-size: 12px; color: #94a3b8; max-width: 220px;">
-                        Active downline: {{ row.other_details.active_downline_users }}<br>
-                        Downline withdrawals: ${{ row.downline_withdrawals_usdt|floatformat:2 }}<br>
-                        Coins invested: {{ row.total_investment_coins|floatformat:4 }}<br>
-                        {% if row.other_details.sponsor_ref_slug %}
-                            Ref: /ref/{{ row.other_details.sponsor_ref_slug }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        <div class="d-flex flex-column gap-1">
+                    <th>Sponsor Name</th>
+                    <th>Direct</th>
+                    <th>Total Investment (USDT)</th>
+                    <th>Total Earning (Commission)</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in rows %}
+                    <tr>
+                        <td>
+                            <strong>{{ row.sponsor_name }}</strong><br>
+                            <small style="color: #94a3b8;">@{{ row.sponsor_username }} · {{ row.sponsor_unique_id }}</small>
+                        </td>
+                        <td>{{ row.direct_sponsored_count }}</td>
+                        <td>${{ row.total_investment_usdt|floatformat:2 }}</td>
+                        <td>{{ row.total_earning|floatformat:8 }} <small style="color: #94a3b8;">coins</small></td>
+                        <td>
                             <a href="{% url 'admin_dashboard:user_detail' row.sponsor_id %}" class="btn btn-primary btn-sm">
                                 <i class="bi bi-eye"></i> Profile
                             </a>
-                            <a href="{% url 'admin_dashboard:sponsor_hierarchy' row.sponsor_id %}" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-diagram-3"></i> Hierarchy
-                            </a>
-                        </div>
-                    </td>
-                </tr>
-            {% empty %}
-                <tr>
-                    <td colspan="7" class="text-center py-5">
-                        <p style="color: #94a3b8;">No sponsors found.</p>
-                    </td>
-                </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-5">
+                            <p style="color: #94a3b8;">No sponsors found.</p>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 {% endblock %}
