@@ -62,25 +62,15 @@ class Withdrawal(models.Model):
 
     @property
     def stage_amounts(self):
-        amount = Decimal(str(self.amount or 0))
-        stage1_percent, stage2_percent, _stage3_percent = self.stage_percentages
-
-        stage1 = (amount * stage1_percent / Decimal('100')).quantize(Decimal('0.00000001'))
-        stage2 = (amount * stage2_percent / Decimal('100')).quantize(Decimal('0.00000001'))
-        stage3 = (amount - stage1 - stage2).quantize(Decimal('0.00000001'))
-        return stage1, stage2, stage3
+        """Full withdrawal amount is paid in one release (no partial stages)."""
+        amount = Decimal(str(self.amount or 0)).quantize(Decimal('0.00000001'))
+        return amount, Decimal('0'), Decimal('0')
 
     @property
     def paid_amount(self):
-        stage1, stage2, stage3 = self.stage_amounts
-        total = Decimal('0')
-        if self.stage1_paid_at:
-            total += stage1
-        if self.stage2_paid_at:
-            total += stage2
-        if self.stage3_paid_at:
-            total += stage3
-        return total
+        if self.status == 'completed':
+            return Decimal(str(self.amount or 0))
+        return Decimal('0')
 
     @property
     def remaining_amount(self):

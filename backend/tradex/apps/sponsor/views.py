@@ -10,6 +10,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 
+from django.db.models import Sum
+
 from apps.accounts.models import User
 from apps.purchases.models import Purchase
 from apps.withdrawals.models import Withdrawal
@@ -48,8 +50,18 @@ class SponsorStatsView(APIView):
             status__in=['pending', 'approved', 'completed'],
         )
 
+        from apps.settings_app.models import SystemSettings
+
+        settings_obj = SystemSettings.get_settings()
         total_purchases = sum(p.amount for p in sponsored_purchases)
         total_withdrawals = sum(w.amount for w in sponsored_withdrawals)
+        my_investment = (
+            Purchase.objects.filter(user=user, status='approved')
+            .aggregate(total=Sum('amount'))['total']
+        )
+        reward_coins = float(user.sponsor_earnings or 0)
+        coin_rate = float(settings_obj.coin_rate or 0)
+        reward_usd = reward_coins * coin_rate if coin_rate > 0 else 0.0
 
         payload = serialize_access_status(user)
         payload.update({
@@ -57,7 +69,14 @@ class SponsorStatsView(APIView):
             'sponsor_link': build_public_sponsor_link(user) or user.sponsor_link,
             'total_sponsored': sponsored_users.count(),
             'active_sponsored': active_sponsored.count(),
-            'sponsor_earnings': float(user.sponsor_earnings),
+            'sponsor_earnings': reward_coins,
+            'sponsor_earnings_usd': reward_usd,
+            'wallet_balance': float(user.wallet_balance or 0),
+            'my_investment_usdt': float(my_investment or 0),
+            'direct_referrals_investment_usdt': float(total_purchases),
+            'min_claim_amount_usd': float(settings_obj.sponsor_min_claim_amount_usd or 100),
+            'can_claim_reward': reward_usd >= float(settings_obj.sponsor_min_claim_amount_usd or 100)
+            and reward_coins > 0,
             'sponsored_purchases': float(total_purchases),
             'sponsored_withdrawals': float(total_withdrawals),
         })

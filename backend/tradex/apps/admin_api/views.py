@@ -166,18 +166,18 @@ def admin_approve_purchase(request, pk):
     purchase.coins_assigned_at = None
     purchase.save()
 
-    # Calculate sponsor earnings
     if purchase.user.sponsored_by:
-        # Sponsor earnings should be based on coin amount, not USDT
+        from apps.sponsor.purchase_rewards import credit_sponsor_for_approved_purchase
+
         sponsor = purchase.user.sponsored_by
-        try:
-            coin_amount = float(calculated_coins)
-        except Exception:
-            coin_amount = 0.0
-        earning_coins = coin_amount * float(settings_obj.sponsor_percentage) / 100
-        sponsor.sponsor_earnings = float(sponsor.sponsor_earnings) + earning_coins
-        sponsor.save()
-        create_notification(sponsor, 'sponsor_earning', f'You earned {earning_coins:.8f} tokens from {purchase.user.username}\'s token purchase.')
+        earning_coins = credit_sponsor_for_approved_purchase(sponsor, calculated_coins)
+        if earning_coins > 0:
+            create_notification(
+                sponsor,
+                'sponsor_earning',
+                f'You earned {float(earning_coins):.8f} sponsor reward coins from '
+                f'{purchase.user.username}\'s purchase.',
+            )
 
     create_notification(
         purchase.user,
@@ -373,19 +373,16 @@ def admin_approve_withdrawal(request, pk):
     withdrawal.status = 'approved'
     withdrawal.manual_tx_hash = manual_tx_hash
     withdrawal.approved_at = timezone.now()
-    withdrawal.payment_stage = 0
-    withdrawal.stage1_paid_at = None
-    withdrawal.stage2_paid_at = None
-    withdrawal.stage3_paid_at = None
-    withdrawal.completed_at = None
     withdrawal.save()
 
-    settings_obj = SystemSettings.get_settings()
+    from apps.withdrawals.views import sync_withdrawal_payout_state
+
+    sync_withdrawal_payout_state(withdrawal)
 
     create_notification(
         withdrawal.user,
         'withdrawal_approved',
-        f'Your withdrawal of {withdrawal.amount} coins has been approved. Stage 1 (50%) will be released after {settings_obj.stage1_hours} hours.'
+        f'Your withdrawal of {withdrawal.amount} coins has been approved and released in full.',
     )
     return Response({
         'message': 'Withdrawal approved',
@@ -620,19 +617,23 @@ def admin_sponsor_report(request):
     No tree structure — each qualifying sponsor appears as one table row.
     """
     search = request.query_params.get('search')
-    order_by = request.query_params.get('order_by', '-total_investment_usdt')
+    order_by = request.query_params.get('order_by', '-direct_referrals_investment_usdt')
     allowed_order = {
-        'total_investment_usdt',
-        '-total_investment_usdt',
+        'my_investment_usdt',
+        '-my_investment_usdt',
+        'direct_referrals_investment_usdt',
+        '-direct_referrals_investment_usdt',
         'sponsored_users_count',
         '-sponsored_users_count',
         'total_earning',
         '-total_earning',
+        'total_earning_usd',
+        '-total_earning_usd',
         'sponsor_name',
         '-sponsor_name',
     }
     if order_by not in allowed_order:
-        order_by = '-total_investment_usdt'
+        order_by = '-direct_referrals_investment_usdt'
 
     rows = get_sponsor_report_rows(search=search, order_by=order_by)
 

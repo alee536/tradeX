@@ -83,13 +83,16 @@ type SponsorRewardRow = {
   direct_sponsored_count: number;
   total_direct_sales_usdt: number;
   reward_percentage: number;
+  reward_coins: number;
+  reward_usd: number;
+  min_claim_amount_usd: number;
   calculated_reward_usdt: number;
-  claimed_so_far_usdt: number;
   outstanding_reward_usdt: number;
   threshold_usdt: number;
+  wallet_balance?: number;
   is_eligible: boolean;
   can_claim: boolean;
-  status: "eligible" | "not_eligible" | "claimed";
+  status: "claimable" | "accumulating" | "empty" | string;
   claim?: {
     id: number;
     amount_usdt: number;
@@ -134,12 +137,14 @@ async function postSetPercentage(sponsorId: number, pct: number): Promise<{ spon
 
 function claimStatusBadge(row: SponsorRewardRow) {
   switch (row.status) {
-    case "eligible":
-      return { text: "Eligible", className: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
-    case "claimed":
-      return { text: "Claimed", className: "bg-blue-500/20 text-blue-300 border-blue-500/40" };
+    case "claimable":
+      return { text: "Ready to claim", className: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40" };
+    case "accumulating":
+      return { text: "Accumulating", className: "bg-amber-500/20 text-amber-300 border-amber-500/40" };
+    case "empty":
+      return { text: "No balance", className: "bg-white/10 text-muted-foreground border-white/15" };
     default:
-      return { text: "Not Eligible", className: "bg-white/10 text-muted-foreground border-white/15" };
+      return { text: "Accumulating", className: "bg-white/10 text-muted-foreground border-white/15" };
   }
 }
 
@@ -419,10 +424,8 @@ function UserRewardSummary() {
             Direct Sponsor Reward
           </CardTitle>
           <CardDescription className="mt-1">
-            Earn {summary.reward_percentage}% on the total purchases of your direct sponsored users.
-            {summary.threshold_usdt > 0 && (
-              <> Activates after {formatCurrency(summary.threshold_usdt)} in direct team sales.</>
-            )}
+            Earn {summary.reward_percentage}% on direct referrals&apos; purchases. Rewards accrue in coins;
+            claim to your main wallet when the USD value reaches {formatCurrency(summary.min_claim_amount_usd ?? summary.threshold_usdt)}.
           </CardDescription>
         </div>
         <Badge className={badge.className}>{badge.text}</Badge>
@@ -451,55 +454,53 @@ function UserRewardSummary() {
           </div>
           <div className="rounded-lg border border-white/5 bg-black/30 p-4">
             <div className="text-xs uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-              <DollarSign className="h-3 w-3" /> Calculated Reward
+              <DollarSign className="h-3 w-3" /> Reward balance
             </div>
             <div className="mt-2 text-2xl font-bold text-emerald-300">
-              {formatCurrency(summary.calculated_reward_usdt)}
+              {formatCurrency(summary.reward_usd ?? summary.outstanding_reward_usdt)}
             </div>
-            {summary.claimed_so_far_usdt > 0 && (
-              <div className="mt-1 text-[11px] text-muted-foreground">
-                Claimed so far {formatCurrency(summary.claimed_so_far_usdt)}
-              </div>
-            )}
+            <div className="mt-1 text-[11px] text-muted-foreground">
+              {formatCrypto(summary.reward_coins ?? 0)} coins · Min claim {formatCurrency(summary.min_claim_amount_usd ?? summary.threshold_usdt)}
+            </div>
           </div>
         </div>
 
-        {summary.outstanding_reward_usdt > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-            <p className="text-xs text-muted-foreground max-w-xl">
-              Outstanding reward: {formatCurrency(summary.outstanding_reward_usdt)}.
-              {summary.can_claim
-                ? " Click the button to claim and credit coins to your wallet."
-                : " Conditions not yet met for claiming."}
-            </p>
-            <Button
-              onClick={() => claimMutation.mutate()}
-              disabled={!summary.can_claim || claimMutation.isPending}
-              className={
-                summary.can_claim
-                  ? "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
-                  : "bg-white/10 text-muted-foreground border border-white/10 cursor-not-allowed"
-              }
-            >
-              {claimMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing…
-                </>
-              ) : summary.can_claim ? (
-                <>
-                  <Gift className="mr-2 h-4 w-4" />
-                  Claim {formatCurrency(summary.outstanding_reward_usdt)}
-                </>
-              ) : (
-                <>
-                  <Lock className="mr-2 h-4 w-4" />
-                  Claim locked
-                </>
-              )}
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <p className="text-xs text-muted-foreground max-w-xl">
+            {(summary.wallet_balance ?? 0) > 0 && (
+              <>Main wallet: {formatCrypto(summary.wallet_balance ?? 0)} coins. </>
+            )}
+            {summary.can_claim
+              ? "Claim moves your sponsor reward balance into your main withdrawable wallet."
+              : `Claim unlocks at ${formatCurrency(summary.min_claim_amount_usd ?? summary.threshold_usdt)} reward value.`}
+          </p>
+          <Button
+            onClick={() => claimMutation.mutate()}
+            disabled={!summary.can_claim || claimMutation.isPending}
+            className={
+              summary.can_claim
+                ? "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                : "bg-white/10 text-muted-foreground border border-white/10 cursor-not-allowed"
+            }
+          >
+            {claimMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing…
+              </>
+            ) : summary.can_claim ? (
+              <>
+                <Gift className="mr-2 h-4 w-4" />
+                Claim Reward
+              </>
+            ) : (
+              <>
+                <Lock className="mr-2 h-4 w-4" />
+                Claim Reward
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
@@ -628,9 +629,9 @@ export default function Sponsor() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <SponsorStatCard
           icon={<Gift className="h-6 w-6" />}
-          label="Total earnings"
-          value={formatCurrency(stats?.sponsor_earnings || 0)}
-          sub="Auto-credited"
+          label="Reward balance"
+          value={formatCurrency((stats as { sponsor_earnings_usd?: number })?.sponsor_earnings_usd ?? 0)}
+          sub={`${formatCrypto(stats?.sponsor_earnings || 0)} coins pending claim`}
           accent="amber"
           loading={loadingStats}
           delayMs={0}
@@ -653,8 +654,9 @@ export default function Sponsor() {
         />
         <SponsorStatCard
           icon={<Share2 className="h-6 w-6" />}
-          label="Team purchases"
-          value={stats?.sponsored_purchases ?? 0}
+          label="Direct referrals' investment"
+          value={formatCurrency((stats as { direct_referrals_investment_usdt?: number })?.direct_referrals_investment_usdt ?? stats?.sponsored_purchases ?? 0)}
+          sub={`My investment: ${formatCurrency((stats as { my_investment_usdt?: number })?.my_investment_usdt ?? 0)}`}
           accent="cyan"
           loading={loadingStats}
           delayMs={240}

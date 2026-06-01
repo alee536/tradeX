@@ -31,60 +31,38 @@ def get_withdrawal_stage_amounts(withdrawal):
 
 
 def sync_withdrawal_payout_state(withdrawal):
-    from apps.settings_app.models import SystemSettings
-
+    """
+    Approved withdrawals pay 100% of the requested amount immediately (no staged cuts).
+    """
     if withdrawal.status not in ['approved', 'completed'] or not withdrawal.approved_at:
         return False
 
-    settings_obj = SystemSettings.get_settings()
+    if withdrawal.status == 'completed':
+        return False
+
     now = timezone.now()
-    stage1_due = withdrawal.approved_at + timedelta(hours=settings_obj.stage1_hours)
-    stage2_due = stage1_due + timedelta(hours=settings_obj.stage2_hours)
-    stage3_due = stage2_due + timedelta(hours=settings_obj.stage3_hours)
-
-    stage1_amount, stage2_amount, stage3_amount = get_withdrawal_stage_amounts(withdrawal)
-    stage1_percent, stage2_percent, stage3_percent = withdrawal.stage_percentages
-    updates = []
-    updated = False
-
-    if not withdrawal.stage1_paid_at and now >= stage1_due:
-        withdrawal.stage1_paid_at = now
-        withdrawal.payment_stage = max(withdrawal.payment_stage, 1)
-        create_notification(
-            withdrawal.user,
-            'withdrawal_stage_paid',
-            f'Withdrawal {withdrawal.id}: Stage 1 payment ({stage1_percent}%) of {stage1_amount:.8f} coins has been released.'
-        )
-        updates.extend(['stage1_paid_at', 'payment_stage'])
-        updated = True
-
-    if withdrawal.stage1_paid_at and not withdrawal.stage2_paid_at and now >= stage2_due:
-        withdrawal.stage2_paid_at = now
-        withdrawal.payment_stage = max(withdrawal.payment_stage, 2)
-        create_notification(
-            withdrawal.user,
-            'withdrawal_stage_paid',
-            f'Withdrawal {withdrawal.id}: Stage 2 payment ({stage2_percent}%) of {stage2_amount:.8f} coins has been released.'
-        )
-        updates.extend(['stage2_paid_at', 'payment_stage'])
-        updated = True
-
-    if withdrawal.stage2_paid_at and not withdrawal.stage3_paid_at and now >= stage3_due:
-        withdrawal.stage3_paid_at = now
-        withdrawal.payment_stage = 3
-        withdrawal.status = 'completed'
-        withdrawal.completed_at = now
-        create_notification(
-            withdrawal.user,
-            'withdrawal_completed',
-            f'Withdrawal {withdrawal.id}: Final payment ({stage3_percent}%) of {stage3_amount:.8f} coins has been released and the withdrawal is completed.'
-        )
-        updates.extend(['stage3_paid_at', 'payment_stage', 'status', 'completed_at'])
-        updated = True
-
-    if updated:
-        withdrawal.save(update_fields=updates)
-    return updated
+    withdrawal.stage1_paid_at = now
+    withdrawal.stage2_paid_at = now
+    withdrawal.stage3_paid_at = now
+    withdrawal.payment_stage = 3
+    withdrawal.status = 'completed'
+    withdrawal.completed_at = now
+    withdrawal.save(
+        update_fields=[
+            'stage1_paid_at',
+            'stage2_paid_at',
+            'stage3_paid_at',
+            'payment_stage',
+            'status',
+            'completed_at',
+        ]
+    )
+    create_notification(
+        withdrawal.user,
+        'withdrawal_completed',
+        f'Withdrawal {withdrawal.id}: {withdrawal.amount} coins has been released in full.',
+    )
+    return True
 
 
 def sync_user_withdrawals(user):
@@ -107,6 +85,7 @@ def get_available_balance(user):
         for p in approved_purchases
     )
     wallet_from_claims = total_claimed_coins(user)
+    wallet_from_sponsor = float(user.wallet_balance or 0)
     profit_bonus = get_profit_bonus_coins(user)
 
     total_withdrawn = sum(
@@ -114,9 +93,9 @@ def get_available_balance(user):
     )
     available = max(
         0.0,
-        float(wallet_from_claims) + profit_bonus - float(total_withdrawn),
+        float(wallet_from_claims) + wallet_from_sponsor + profit_bonus - float(total_withdrawn),
     )
-    return available, float(wallet_from_claims), float(total_assigned)
+    return available, float(wallet_from_claims) + wallet_from_sponsor, float(total_assigned)
 
 
 @api_view(['GET', 'POST'])

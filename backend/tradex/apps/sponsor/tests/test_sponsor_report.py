@@ -72,15 +72,23 @@ class SponsorReportServiceTests(TestCase):
         self.assertIn('ahmed', rows)
         self.assertEqual(rows['ali']['sponsored_users_count'], 3)
         self.assertEqual(rows['ali']['direct_sponsored_count'], 2)
+        self.assertAlmostEqual(rows['ali']['direct_referrals_investment_usdt'], 2000.0)
         self.assertAlmostEqual(rows['ali']['total_investment_usdt'], 2500.0)
         self.assertAlmostEqual(rows['ali']['total_earning'], 50.0)
+        self.assertAlmostEqual(rows['ali']['total_earning_usd'], 100.0)
+
+    def test_my_and_direct_columns_are_separate(self):
+        rows = {r['sponsor_username']: r for r in get_sponsor_report_rows()}
+        ali = rows['ali']
+        self.assertEqual(ali['my_investment_usdt'], 0.0)
+        self.assertEqual(ali['direct_referrals_investment_usdt'], 2000.0)
 
     def test_child_sponsor_has_own_row(self):
         rows = {r['sponsor_username']: r for r in get_sponsor_report_rows()}
         ahmed = rows['ahmed']
         self.assertEqual(ahmed['sponsored_users_count'], 1)
         self.assertEqual(ahmed['direct_sponsored_count'], 1)
-        self.assertAlmostEqual(ahmed['total_investment_usdt'], 500.0)
+        self.assertAlmostEqual(ahmed['direct_referrals_investment_usdt'], 500.0)
         self.assertAlmostEqual(ahmed['total_earning'], 12.5)
 
     def test_search_filters_sponsors(self):
@@ -88,11 +96,11 @@ class SponsorReportServiceTests(TestCase):
         usernames = {r['sponsor_username'] for r in rows}
         self.assertEqual(usernames, {'ahmed'})
 
-    def test_order_by_investment_desc(self):
-        rows = get_sponsor_report_rows(order_by='-total_investment_usdt')
+    def test_order_by_direct_investment_desc(self):
+        rows = get_sponsor_report_rows(order_by='-direct_referrals_investment_usdt')
         self.assertGreaterEqual(
-            rows[0]['total_investment_usdt'],
-            rows[-1]['total_investment_usdt'],
+            rows[0]['direct_referrals_investment_usdt'],
+            rows[-1]['direct_referrals_investment_usdt'],
         )
 
     def test_user_without_referrals_not_listed(self):
@@ -149,5 +157,6 @@ class SponsorReportDashboardTests(TestCase):
         url = reverse('admin_dashboard:sponsor_report')
         response = self.client.get(url)
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, 'Sponsor Report')
+        self.assertContains(response, 'Sponsor Settings')
+        self.assertContains(response, 'Direct Referrals')
         self.assertContains(response, 'dash_sp')
