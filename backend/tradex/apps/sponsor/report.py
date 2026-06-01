@@ -66,8 +66,19 @@ def _sponsor_base_queryset(search: str | None = None):
     return qs
 
 
-def _serialize_row(sponsor: User, metrics: dict[str, Any]) -> dict[str, Any]:
+def _serialize_row(
+    sponsor: User,
+    metrics: dict[str, Any],
+    settings_obj=None,
+) -> dict[str, Any]:
+    from apps.settings_app.models import SystemSettings
+
+    settings_obj = settings_obj or SystemSettings.get_settings()
     display_name = (sponsor.full_name or sponsor.username or '').strip() or sponsor.username
+    earnings_coins = float(metrics['sponsor_earnings'])
+    coin_rate = float(settings_obj.coin_rate or 0)
+    earnings_usd = earnings_coins * coin_rate if coin_rate > 0 else 0.0
+
     return {
         'sponsor_id': sponsor.id,
         'sponsor_name': display_name,
@@ -76,9 +87,12 @@ def _serialize_row(sponsor: User, metrics: dict[str, Any]) -> dict[str, Any]:
         'sponsor_email': sponsor.email,
         'sponsored_users_count': metrics['downline_count'],
         'direct_sponsored_count': metrics['direct_count'],
+        'my_investment_usdt': metrics['my_investment_usdt'],
+        'direct_referrals_investment_usdt': metrics['direct_referrals_investment_usdt'],
         'total_investment_usdt': metrics['investment_usdt'],
         'total_investment_coins': metrics['investment_coins'],
-        'total_earning': metrics['sponsor_earnings'],
+        'total_earning': earnings_coins,
+        'total_earning_usd': earnings_usd,
         'downline_withdrawals_usdt': metrics['withdrawals_usdt'],
         'other_details': {
             'active_downline_users': metrics['active_downline'],
@@ -172,11 +186,32 @@ def _fetch_metrics_postgresql(sponsor_ids: list[int]) -> dict[int, dict[str, Any
             SELECT root_id, COUNT(DISTINCT user_id) AS downline_count
             FROM scoped
             GROUP BY root_id
+        ),
+        my_investment AS (
+            SELECT
+                r.root_id,
+                COALESCE(SUM(p.amount), 0) AS my_investment_usdt
+            FROM roots r
+            LEFT JOIN {purchase_table} p
+                ON p.user_id = r.root_id AND p.status = 'approved'
+            GROUP BY r.root_id
+        ),
+        direct_investment AS (
+            SELECT
+                u.sponsored_by_id AS root_id,
+                COALESCE(SUM(p.amount), 0) AS direct_referrals_investment_usdt
+            FROM {user_table} u
+            LEFT JOIN {purchase_table} p
+                ON p.user_id = u.id AND p.status = 'approved'
+            WHERE u.sponsored_by_id IN ({placeholders})
+            GROUP BY u.sponsored_by_id
         )
         SELECT
             r.root_id,
             COALESCE(dc.downline_count, 0) AS downline_count,
             COALESCE(dir.direct_count, 0) AS direct_count,
+            COALESCE(mi.my_investment_usdt, 0) AS my_investment_usdt,
+            COALESCE(di.direct_referrals_investment_usdt, 0) AS direct_referrals_investment_usdt,
             COALESCE(ps.investment_usdt, 0) AS investment_usdt,
             COALESCE(ps.investment_coins, 0) AS investment_coins,
             COALESCE(ws.withdrawals_usdt, 0) AS withdrawals_usdt,
@@ -184,12 +219,14 @@ def _fetch_metrics_postgresql(sponsor_ids: list[int]) -> dict[int, dict[str, Any
         FROM roots r
         LEFT JOIN downline_counts dc ON dc.root_id = r.root_id
         LEFT JOIN direct_counts dir ON dir.root_id = r.root_id
+        LEFT JOIN my_investment mi ON mi.root_id = r.root_id
+        LEFT JOIN direct_investment di ON di.root_id = r.root_id
         LEFT JOIN purchase_stats ps ON ps.root_id = r.root_id
         LEFT JOIN withdrawal_stats ws ON ws.root_id = r.root_id
         LEFT JOIN active_stats act ON act.root_id = r.root_id
     """
 
-    params = sponsor_ids + sponsor_ids
+    params = sponsor_ids + sponsor_ids + sponsor_ids
     metrics: dict[int, dict[str, Any]] = {}
     with connection.cursor() as cursor:
         cursor.execute(sql, params)
@@ -198,10 +235,12 @@ def _fetch_metrics_postgresql(sponsor_ids: list[int]) -> dict[int, dict[str, Any
             metrics[root_id] = {
                 'downline_count': int(row[1]),
                 'direct_count': int(row[2]),
-                'investment_usdt': float(row[3]),
-                'investment_coins': float(row[4]),
-                'withdrawals_usdt': float(row[5]),
-                'active_downline': int(row[6]),
+                'my_investment_usdt': float(row[3]),
+                'direct_referrals_investment_usdt': float(row[4]),
+                'investment_usdt': float(row[5]),
+                'investment_coins': float(row[6]),
+                'withdrawals_usdt': float(row[7]),
+                'active_downline': int(row[8]),
             }
 
     for sponsor_id in sponsor_ids:
@@ -210,6 +249,8 @@ def _fetch_metrics_postgresql(sponsor_ids: list[int]) -> dict[int, dict[str, Any
             {
                 'downline_count': 0,
                 'direct_count': 0,
+                'my_investment_usdt': 0.0,
+                'direct_referrals_investment_usdt': 0.0,
                 'investment_usdt': 0.0,
                 'investment_coins': 0.0,
                 'withdrawals_usdt': 0.0,
@@ -262,6 +303,8 @@ def _fetch_metrics_python(sponsor_ids: list[int]) -> dict[int, dict[str, Any]]:
         sid: {
             'downline_count': len(downline_by_root.get(sid, set())),
             'direct_count': len(children.get(sid, [])),
+            'my_investment_usdt': 0.0,
+            'direct_referrals_investment_usdt': 0.0,
             'investment_usdt': 0.0,
             'investment_coins': 0.0,
             'withdrawals_usdt': 0.0,
@@ -269,6 +312,33 @@ def _fetch_metrics_python(sponsor_ids: list[int]) -> dict[int, dict[str, Any]]:
         }
         for sid in sponsor_ids
     }
+
+    own_purchase_rows = (
+        Purchase.objects.filter(user_id__in=sponsor_ids, status='approved')
+        .values('user_id')
+        .annotate(total=Coalesce(Sum('amount'), Decimal('0')))
+    )
+    for row in own_purchase_rows:
+        metrics[row['user_id']]['my_investment_usdt'] = float(row['total'])
+
+    direct_child_ids = []
+    for sid in sponsor_ids:
+        direct_child_ids.extend(children.get(sid, []))
+    if direct_child_ids:
+        direct_purchase_rows = (
+            Purchase.objects.filter(user_id__in=direct_child_ids, status='approved')
+            .values('user_id')
+            .annotate(total=Coalesce(Sum('amount'), Decimal('0')))
+        )
+        child_to_parent = {
+            uid: sid
+            for sid in sponsor_ids
+            for uid in children.get(sid, [])
+        }
+        for row in direct_purchase_rows:
+            parent_id = child_to_parent.get(row['user_id'])
+            if parent_id is not None:
+                metrics[parent_id]['direct_referrals_investment_usdt'] += float(row['total'])
 
     if all_downline_ids:
         active_ids = set(
@@ -336,6 +406,9 @@ def get_sponsor_report_rows(
     order_by: one of total_investment_usdt, -total_investment_usdt, sponsored_users_count,
               -sponsored_users_count, total_earning, -total_earning, sponsor_name, -sponsor_name
     """
+    from apps.settings_app.models import SystemSettings
+
+    settings_obj = SystemSettings.get_settings()
     sponsors = list(_sponsor_base_queryset(search))
     if not sponsors:
         return []
@@ -347,16 +420,19 @@ def get_sponsor_report_rows(
     for sponsor in sponsors:
         base = metrics_map.get(sponsor.id, {})
         base['sponsor_earnings'] = float(sponsor.sponsor_earnings or 0)
-        rows.append(_serialize_row(sponsor, base))
+        rows.append(_serialize_row(sponsor, base, settings_obj))
 
     reverse = order_by.startswith('-')
     key_name = order_by.lstrip('-')
     key_map = {
         'total_investment_usdt': lambda r: r['total_investment_usdt'],
+        'my_investment_usdt': lambda r: r['my_investment_usdt'],
+        'direct_referrals_investment_usdt': lambda r: r['direct_referrals_investment_usdt'],
         'sponsored_users_count': lambda r: r['sponsored_users_count'],
         'total_earning': lambda r: r['total_earning'],
+        'total_earning_usd': lambda r: r['total_earning_usd'],
         'sponsor_name': lambda r: (r['sponsor_name'] or '').lower(),
     }
-    sort_key = key_map.get(key_name, key_map['total_investment_usdt'])
+    sort_key = key_map.get(key_name, key_map['direct_referrals_investment_usdt'])
     rows.sort(key=sort_key, reverse=reverse)
     return rows

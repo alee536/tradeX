@@ -43,7 +43,13 @@ class SystemSettings(models.Model):
         max_digits=20,
         decimal_places=8,
         default=1000,
-        help_text='Minimum total downline investment (USDT) required to activate the multi-level sponsor reward claim button.',
+        help_text='Legacy field — prefer sponsor_min_claim_amount_usd for claim activation.',
+    )
+    sponsor_min_claim_amount_usd = models.DecimalField(
+        max_digits=20,
+        decimal_places=8,
+        default=100,
+        help_text='Minimum USD value of accumulated sponsor reward coins before Claim Reward is enabled.',
     )
 
     # ============== Profit / Reward System (admin-controlled) ==============

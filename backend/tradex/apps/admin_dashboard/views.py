@@ -139,10 +139,21 @@ def approve_purchase(request, purchase_id):
     purchase.coin_rate_at_approval = settings.coin_rate
     purchase.approved_coin_amount = coins_to_assign
     purchase.save()
-    
+
+    if purchase.user.sponsored_by:
+        from apps.sponsor.purchase_rewards import credit_sponsor_for_approved_purchase
+
+        earning = credit_sponsor_for_approved_purchase(purchase.user.sponsored_by, coins_to_assign)
+        if earning > 0:
+            create_notification(
+                purchase.user.sponsored_by,
+                'sponsor_earning',
+                f'You earned {earning:.8f} sponsor reward coins from {purchase.user.username}\'s purchase.',
+            )
+
     settings.sold_coins = Decimal(str(settings.sold_coins or 0)) + coins_to_assign
     settings.save()
-    
+
     messages.success(request, f'Purchase approved. Expected coins: {coins_to_assign:.8f}')
     return redirect('admin_dashboard:purchases')
 
@@ -365,7 +376,7 @@ def sponsor_report_list(request):
                 messages.success(request, 'Profit / reward settings updated successfully.')
             else:
                 sponsor_percentage = request.POST.get('sponsor_percentage')
-                sponsor_reward_threshold_usdt = request.POST.get('sponsor_reward_threshold_usdt')
+                sponsor_min_claim_amount_usd = request.POST.get('sponsor_min_claim_amount_usd')
 
                 if sponsor_percentage is not None and sponsor_percentage != '':
                     pct = Decimal(sponsor_percentage)
@@ -374,12 +385,12 @@ def sponsor_report_list(request):
                         return redirect('admin_dashboard:sponsor_report')
                     settings.sponsor_percentage = pct
 
-                if sponsor_reward_threshold_usdt is not None and sponsor_reward_threshold_usdt != '':
-                    threshold = Decimal(sponsor_reward_threshold_usdt)
-                    if threshold < 0:
-                        messages.error(request, 'Reward on investment cannot be negative.')
+                if sponsor_min_claim_amount_usd is not None and sponsor_min_claim_amount_usd != '':
+                    min_claim = Decimal(sponsor_min_claim_amount_usd)
+                    if min_claim < 0:
+                        messages.error(request, 'Minimum claim amount cannot be negative.')
                         return redirect('admin_dashboard:sponsor_report')
-                    settings.sponsor_reward_threshold_usdt = threshold
+                    settings.sponsor_min_claim_amount_usd = min_claim
 
                 settings.save()
                 messages.success(request, 'Sponsor reward settings updated successfully.')
@@ -389,19 +400,23 @@ def sponsor_report_list(request):
         return redirect('admin_dashboard:sponsor_report')
 
     search = request.GET.get('search', '').strip()
-    order_by = request.GET.get('order_by', '-total_investment_usdt')
+    order_by = request.GET.get('order_by', '-direct_referrals_investment_usdt')
     allowed_order = {
-        'total_investment_usdt',
-        '-total_investment_usdt',
+        'my_investment_usdt',
+        '-my_investment_usdt',
+        'direct_referrals_investment_usdt',
+        '-direct_referrals_investment_usdt',
         'sponsored_users_count',
         '-sponsored_users_count',
         'total_earning',
         '-total_earning',
+        'total_earning_usd',
+        '-total_earning_usd',
         'sponsor_name',
         '-sponsor_name',
     }
     if order_by not in allowed_order:
-        order_by = '-total_investment_usdt'
+        order_by = '-direct_referrals_investment_usdt'
 
     rows = get_sponsor_report_rows(search=search or None, order_by=order_by)
 
@@ -411,10 +426,10 @@ def sponsor_report_list(request):
         'order_by': order_by,
         'settings': settings,
         'order_options': [
-            ('-total_investment_usdt', 'Investment (high → low)'),
-            ('total_investment_usdt', 'Investment (low → high)'),
+            ('-direct_referrals_investment_usdt', 'Direct referrals investment (high → low)'),
+            ('-my_investment_usdt', 'My investment (high → low)'),
+            ('-total_earning_usd', 'Reward balance USD (high → low)'),
             ('-sponsored_users_count', 'Downline users (high → low)'),
-            ('-total_earning', 'Commission earned (high → low)'),
             ('sponsor_name', 'Name (A → Z)'),
         ],
     }
@@ -669,17 +684,16 @@ def approve_withdrawal(request, withdrawal_id):
     withdrawal.status = 'approved'
     withdrawal.manual_tx_hash = manual_tx_hash
     withdrawal.approved_at = timezone.now()
-    withdrawal.payment_stage = 0
-    withdrawal.stage1_paid_at = None
-    withdrawal.stage2_paid_at = None
-    withdrawal.stage3_paid_at = None
-    withdrawal.completed_at = None
     withdrawal.save()
+
+    from apps.withdrawals.views import sync_withdrawal_payout_state
+
+    sync_withdrawal_payout_state(withdrawal)
 
     create_notification(
         withdrawal.user,
         'withdrawal_approved',
-        f'Your withdrawal of {withdrawal.amount} coins has been approved. Stage 1 (50%) will be released after {settings.stage1_hours} hours.'
+        f'Your withdrawal of {withdrawal.amount} coins has been approved and released in full.',
     )
     messages.success(request, 'Withdrawal approved successfully.')
     return redirect('admin_dashboard:withdrawals')

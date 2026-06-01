@@ -14,6 +14,7 @@ class SystemSettingsSerializer(serializers.ModelSerializer):
             'min_purchase', 'max_purchase',
             'usdt_wallet_address', 'sponsor_percentage', 'sponsor_access_fee_usdt',
             'sponsor_reward_threshold_usdt',
+            'sponsor_min_claim_amount_usd',
             'profit_enabled', 'profit_percentage', 'profit_cycle_hours',
             'total_coin_supply', 'sold_coins',
             'remaining_coins',

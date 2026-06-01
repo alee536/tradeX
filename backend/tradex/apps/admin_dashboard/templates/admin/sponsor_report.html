@@ -19,10 +19,10 @@
         <input type="hidden" name="form_type" value="sponsor_reward">
         <div class="row g-3 align-items-end">
             <div class="col-md-4">
-                <label class="form-label" for="sponsor_reward_threshold_usdt">Reward on Investment (USDT)</label>
-                <input type="number" step="0.01" min="0" class="form-control" id="sponsor_reward_threshold_usdt"
-                       name="sponsor_reward_threshold_usdt" value="{{ settings.sponsor_reward_threshold_usdt }}"
-                       placeholder="e.g. 1000 or 1500">
+                <label class="form-label" for="sponsor_min_claim_amount_usd">Min claim amount (USD)</label>
+                <input type="number" step="0.01" min="0" class="form-control" id="sponsor_min_claim_amount_usd"
+                       name="sponsor_min_claim_amount_usd" value="{{ settings.sponsor_min_claim_amount_usd }}"
+                       placeholder="e.g. 100">
             </div>
             <div class="col-md-4">
                 <label class="form-label" for="sponsor_percentage">Reward Percentage (%)</label>
@@ -39,7 +39,7 @@
         </div>
         <div class="row g-2 mt-1">
             <div class="col-md-4">
-                <small style="color: #94a3b8;">Minimum direct team sales before claim activates</small>
+                <small style="color: #94a3b8;">Min USD value of reward coins before Claim is enabled</small>
             </div>
             <div class="col-md-4">
                 <small style="color: #94a3b8;">Default % on direct team investment</small>
@@ -132,8 +132,9 @@
                 <tr>
                     <th>Sponsor Name</th>
                     <th>Direct</th>
-                    <th>Total Investment (USDT)</th>
-                    <th>Total Earning (Commission)</th>
+                    <th>My Investment (USDT)</th>
+                    <th>Direct Referrals' Investment (USDT)</th>
+                    <th>Reward Balance (USD)</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -145,8 +146,12 @@
                             <small style="color: #94a3b8;">@{{ row.sponsor_username }} · {{ row.sponsor_unique_id }}</small>
                         </td>
                         <td>{{ row.direct_sponsored_count }}</td>
-                        <td>${{ row.total_investment_usdt|floatformat:2 }}</td>
-                        <td>{{ row.total_earning|floatformat:8 }} <small style="color: #94a3b8;">coins</small></td>
+                        <td>${{ row.my_investment_usdt|floatformat:2 }}</td>
+                        <td>${{ row.direct_referrals_investment_usdt|floatformat:2 }}</td>
+                        <td>
+                            ${{ row.total_earning_usd|floatformat:2 }}
+                            <br><small style="color: #94a3b8;">{{ row.total_earning|floatformat:4 }} coins</small>
+                        </td>
                         <td>
                             <a href="{% url 'admin_dashboard:user_detail' row.sponsor_id %}" class="btn btn-primary btn-sm">
                                 <i class="bi bi-eye"></i> Profile
@@ -155,7 +160,7 @@
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center py-5">
+                        <td colspan="6" class="text-center py-5">
                             <p style="color: #94a3b8;">No sponsors found.</p>
                         </td>
                     </tr>
