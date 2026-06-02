@@ -5,6 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}24TradeX Admin Dashboard{% endblock %}</title>
+    <link rel="icon" type="image/png" href="{% static 'frontend/favicon.png' %}">
+    <link rel="shortcut icon" href="{% static 'frontend/favicon.png' %}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
     <style>
@@ -75,6 +77,13 @@
             display: flex;
             align-items: center;
             gap: 0.3rem;
+        }
+
+        .sidebar-brand-logo {
+            width: 64px;
+            height: 64px;
+            display: block;
+            object-fit: contain;
         }
 
         .sidebar-brand h5 {
@@ -540,6 +549,11 @@
                 padding: 10px;
             }
 
+            .sidebar-brand-logo {
+                width: 52px;
+                height: 52px;
+            }
+
             .header {
                 flex-direction: column;
                 align-items: flex-start;
@@ -817,7 +831,7 @@
     <div class="sidebar">
         <div class="sidebar-brand">
             <a href="{{ FRONTEND_URL }}/" title="Open trader app home" style="text-decoration: none; color: inherit; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
-                <img src="{% static 'images/logo.png' %}" alt="24TradeX Logo" style="width: 5rem; height: 5rem; display: block;">
+                <img src="{% static 'frontend/logo.png' %}" alt="24TradeX Logo" class="sidebar-brand-logo">
                 <h4 style="margin: 0; white-space: nowrap; font-size: 1.5rem;">24TRADEX</h4>
             </a>
         </div>
