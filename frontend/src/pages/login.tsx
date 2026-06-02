@@ -128,6 +128,18 @@ export default function Login() {
         <CryptoBackground intensity={0.4} />
 
         <div className="w-full max-w-md relative z-10">
+          <div className="mb-6 flex items-center gap-3">
+            <img
+              src={`${import.meta.env.BASE_URL}logo.png`}
+              alt="24TRADEX Logo"
+              className="h-14 w-14 rounded-xl object-contain"
+              loading="eager"
+            />
+            <div>
+              <p className="text-base font-semibold text-white">24TRADEX</p>
+              <p className="text-xs text-gray-500">Secure trading platform</p>
+            </div>
+          </div>
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-white mb-1">Welcome back</h2>
             <p className="text-gray-500 text-sm">Sign in to your trading account</p>
