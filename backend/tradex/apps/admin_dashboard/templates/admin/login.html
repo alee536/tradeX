@@ -1,9 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Login - 24TradeX</title>
+    <link rel="icon" type="image/png" href="{% static 'frontend/favicon.png' %}">
+    <link rel="shortcut icon" href="{% static 'frontend/favicon.png' %}">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
         :root {
@@ -44,10 +47,15 @@
             font-weight: 700;
             font-size: 28px;
             margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+        }
+
+        .login-brand-logo {
+            width: 72px;
+            height: 72px;
+            display: block;
+            margin: 0 auto 12px;
+            object-fit: contain;
+            border-radius: 14px;
         }
 
         .login-header p {
@@ -120,7 +128,8 @@
     <div class="login-container">
         <div class="login-card">
             <div class="login-header">
-                <h1><i class="bi bi-speedometer2"></i> 24TradeX</h1>
+                <img src="{% static 'frontend/logo.png' %}" alt="24TradeX Logo" class="login-brand-logo">
+                <h1>24TradeX</h1>
                 <p>Admin Dashboard</p>
             </div>
 
