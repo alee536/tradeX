@@ -174,7 +174,7 @@
         <tbody>
             {% for withdrawal in withdrawals %}
                 <tr>
-                    <td>{{ withdrawal.amount|floatformat:0 }}</td>
+                    <td>{{ withdrawal.amount|floatformat:"-8" }}</td>
                     <td>
                         <code style="color: #94a3b8; font-size: 12px;">{{ withdrawal.wallet_address }}</code>
                     </td>

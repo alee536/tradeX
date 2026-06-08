@@ -5,6 +5,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+export const COIN_DECIMALS = 8;
+
+export function parseCoinAmount(value: unknown): number {
+  if (value === "" || value === null || value === undefined) {
+    return NaN;
+  }
+  const normalized = String(value).trim().replace(",", ".");
+  if (!/^\d+(\.\d+)?$/.test(normalized)) {
+    return NaN;
+  }
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    return NaN;
+  }
+  const factor = 10 ** COIN_DECIMALS;
+  return Math.round(parsed * factor) / factor;
+}
+
+export function isCoinAmountWithinBalance(amount: number, available: number): boolean {
+  if (!Number.isFinite(amount) || !Number.isFinite(available)) {
+    return false;
+  }
+  const factor = 10 ** COIN_DECIMALS;
+  return Math.round(amount * factor) <= Math.round(available * factor);
+}
+
 export function formatCurrency(amount: number) {
   const numericAmount = typeof amount === "number" ? amount : Number(amount);
   return new Intl.NumberFormat('en-US', {

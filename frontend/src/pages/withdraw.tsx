@@ -19,13 +19,16 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ArrowDownToLine, CheckCircle2, Clock, XCircle, Lock, Unlock } from "lucide-react";
-import { formatCrypto, formatCurrency } from "@/lib/utils";
+import { formatCrypto, formatCurrency, isCoinAmountWithinBalance, parseCoinAmount } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClaimScheduleCard } from "@/components/claims/ClaimScheduleCard";
 
 const withdrawSchema = z.object({
-  amount: z.coerce.number().positive("Amount must be positive"),
+  amount: z.preprocess(
+    (value) => parseCoinAmount(value),
+    z.number({ invalid_type_error: "Enter a valid amount" }).positive("Amount must be positive"),
+  ),
   wallet_address: z.string().min(10, "Receiving wallet address is required"),
 });
 
@@ -45,24 +48,30 @@ export default function Withdraw() {
   const form = useForm<WithdrawFormValues>({
     resolver: zodResolver(withdrawSchema),
     defaultValues: {
-      amount: 0,
+      amount: "",
       wallet_address: "",
     },
   });
 
-  const availableAmount = unlockData?.available || 0;
+  const availableAmount = parseCoinAmount(unlockData?.available ?? 0) || 0;
   const currentCoinRate = Number(liveSettings?.coin_rate || 0);
   const availableUsdEquivalent = availableAmount * currentCoinRate;
   const totalAssignedCoins = unlockData?.breakdown?.reduce((sum, item) => sum + Number(item.amount || 0), 0) || 0;
   const lockedAmount = Math.max(0, totalAssignedCoins - Number(unlockData?.total_unlocked || 0));
 
   const onSubmit = (data: WithdrawFormValues) => {
-    if (data.amount > availableAmount) {
+    const amount = parseCoinAmount(data.amount);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      form.setError("amount", { message: "Enter a valid amount" });
+      return;
+    }
+
+    if (!isCoinAmountWithinBalance(amount, availableAmount)) {
       form.setError("amount", { message: "Amount exceeds available balance" });
       return;
     }
 
-    createWithdrawal.mutate({ data }, {
+    createWithdrawal.mutate({ data: { ...data, amount } }, {
       onSuccess: () => {
         toast({
           title: "Withdrawal requested",
@@ -213,13 +222,26 @@ export default function Withdraw() {
                       <FormLabel>Coins to Withdraw</FormLabel>
                       <FormControl>
                         <div className="relative">
-                           <Input type="number" step="any" placeholder="0.00" {...field} className="bg-black/20" />
+                           <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              {...field}
+                              value={field.value === "" || field.value === 0 ? "" : field.value}
+                              onChange={(event) => {
+                                const nextValue = event.target.value;
+                                field.onChange(nextValue === "" ? "" : nextValue);
+                              }}
+                              className="bg-black/20"
+                           />
                            <Button 
                               type="button" 
                               variant="ghost" 
                               size="sm" 
                               className="absolute right-1 top-1 h-7 text-xs text-primary hover:text-primary/80"
-                              onClick={() => form.setValue("amount", availableAmount)}
+                              onClick={() => form.setValue("amount", String(availableAmount))}
                            >
                               MAX
                            </Button>

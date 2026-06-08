@@ -52,7 +52,7 @@
                         </a><br>
                         <small style="color: #94a3b8;">{{ withdrawal.user.email }}</small>
                     </td>
-                    <td>{{ withdrawal.amount|floatformat:0 }}</td>
+                    <td>{{ withdrawal.amount|floatformat:"-8" }}</td>
                     <td>${{ withdrawal.usdt_equivalent_display|default:"0.00" }}</td>
                     <td>
                         <code style="color: #94a3b8; font-size: 12px;">{{ withdrawal.wallet_address }}</code>

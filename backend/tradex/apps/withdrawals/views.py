@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import models
+from django.db.models import Sum
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -20,6 +21,7 @@ from .claims import (
     total_claimed_coins,
 )
 from .models import PurchaseClaim, Withdrawal
+from .money import exceeds_balance, to_decimal
 from .serializers import WithdrawalInputSerializer, WithdrawalSerializer
 
 
@@ -79,23 +81,36 @@ def get_available_balance(user):
     from apps.purchases.models import Purchase
     from apps.settings_app.profit import get_profit_bonus_coins
 
-    approved_purchases = Purchase.objects.filter(user=user, status='approved', is_coins_assigned=True)
-    total_assigned = sum(
-        float(p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins)
-        for p in approved_purchases
-    )
-    wallet_from_claims = total_claimed_coins(user)
-    wallet_from_sponsor = float(user.wallet_balance or 0)
-    profit_bonus = get_profit_bonus_coins(user)
+    approved_purchases = Purchase.objects.filter(
+        user=user,
+        status='approved',
+        is_coins_assigned=True,
+    ).only('approved_coin_amount', 'amount', 'coin_rate_at_approval')
+    total_assigned = Decimal('0')
+    for purchase in approved_purchases:
+        coin_amount = (
+            purchase.approved_coin_amount
+            if purchase.approved_coin_amount is not None
+            else purchase.calculated_coins
+        )
+        total_assigned += to_decimal(coin_amount)
 
-    total_withdrawn = sum(
-        w.amount for w in Withdrawal.objects.filter(user=user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
-    )
-    available = max(
-        0.0,
-        float(wallet_from_claims) + wallet_from_sponsor + profit_bonus - float(total_withdrawn),
-    )
-    return available, float(wallet_from_claims) + wallet_from_sponsor, float(total_assigned)
+    wallet_from_claims = total_claimed_coins(user)
+    wallet_from_sponsor = to_decimal(user.wallet_balance)
+    profit_bonus = to_decimal(get_profit_bonus_coins(user))
+
+    total_withdrawn = Withdrawal.objects.filter(
+        user=user,
+        status__in=ACTIVE_WITHDRAWAL_STATUSES,
+    ).aggregate(total=Sum('amount'))['total']
+    total_withdrawn = to_decimal(total_withdrawn)
+
+    wallet_total = wallet_from_claims + wallet_from_sponsor
+    available = wallet_from_claims + wallet_from_sponsor + profit_bonus - total_withdrawn
+    if available < Decimal('0'):
+        available = Decimal('0')
+
+    return available, wallet_total, total_assigned
 
 
 @api_view(['GET', 'POST'])
@@ -121,7 +136,7 @@ def withdrawals_list(request):
     amount = serializer.validated_data['amount']
     available, wallet_from_claims, total_assigned = get_available_balance(request.user)
 
-    if float(amount) > available:
+    if exceeds_balance(amount, available):
         if total_assigned > 0 and wallet_from_claims <= 0:
             from apps.settings_app.models import SystemSettings
             settings_obj = SystemSettings.get_settings()
@@ -156,49 +171,63 @@ def unlocked_amount(request):
 
     from apps.settings_app.profit import get_profit_bonus_coins
 
-    from apps.purchases.models import Purchase
-
     approved_purchases = Purchase.objects.filter(
         user=request.user, status='approved', is_coins_assigned=True,
+    ).only(
+        'id', 'transaction_id', 'approved_at', 'approved_coin_amount',
+        'amount', 'coin_rate_at_approval',
     )
     available, wallet_from_claims, total_assigned = get_available_balance(request.user)
-    profit_bonus = get_profit_bonus_coins(request.user)
-    total_withdrawn = sum(
-        w.amount for w in Withdrawal.objects.filter(user=request.user, status__in=ACTIVE_WITHDRAWAL_STATUSES)
-    )
+    profit_bonus = to_decimal(get_profit_bonus_coins(request.user))
+    total_withdrawn = Withdrawal.objects.filter(
+        user=request.user,
+        status__in=ACTIVE_WITHDRAWAL_STATUSES,
+    ).aggregate(total=Sum('amount'))['total']
+    total_withdrawn = to_decimal(total_withdrawn)
 
     breakdown = []
     settings_obj = SystemSettings.get_settings()
+    coin_rate = to_decimal(settings_obj.coin_rate)
 
-    for p in approved_purchases:
-        if not p.approved_at:
+    approved_claims = PurchaseClaim.objects.filter(
+        user=request.user,
+        status='approved',
+        purchase_id__in=approved_purchases.values_list('id', flat=True),
+    ).values('purchase_id').annotate(
+        claimed_total=Sum('amount_coins'),
+        stage_count=models.Count('id'),
+    )
+    claim_stats_by_purchase = {
+        row['purchase_id']: row for row in approved_claims
+    }
+
+    for purchase in approved_purchases:
+        if not purchase.approved_at:
             continue
-        purchase_coin_amount = float(
-            p.approved_coin_amount if p.approved_coin_amount is not None else p.calculated_coins
+        purchase_coin_amount = to_decimal(
+            purchase.approved_coin_amount
+            if purchase.approved_coin_amount is not None
+            else purchase.calculated_coins
         )
-        claimed_for_purchase = float(
-            PurchaseClaim.objects.filter(
-                purchase=p, user=request.user, status='approved',
-            ).aggregate(total=models.Sum('amount_coins'))['total'] or 0
-        )
+        claim_stats = claim_stats_by_purchase.get(purchase.id, {})
+        claimed_for_purchase = to_decimal(claim_stats.get('claimed_total'))
         breakdown.append({
-            'purchase_id': p.id,
-            'transaction_id': p.transaction_id,
+            'purchase_id': purchase.id,
+            'transaction_id': purchase.transaction_id,
             'amount': purchase_coin_amount,
             'unlocked': claimed_for_purchase,
-            'unlocked_usdt': float(claimed_for_purchase) * float(settings_obj.coin_rate),
-            'stage': PurchaseClaim.objects.filter(
-                purchase=p, user=request.user, status='approved',
-            ).count(),
+            'unlocked_usdt': claimed_for_purchase * coin_rate,
+            'stage': claim_stats.get('stage_count', 0),
             'next_unlock_at': None,
         })
 
+    available = max(Decimal('0'), available)
     return Response({
-        'total_unlocked': float(wallet_from_claims),
-        'total_withdrawn': float(total_withdrawn),
-        'available': max(0, available),
-        'available_usdt_equivalent': float(max(0, available) * float(settings_obj.coin_rate)),
-        'coin_rate': float(settings_obj.coin_rate),
+        'total_unlocked': wallet_from_claims,
+        'total_withdrawn': total_withdrawn,
+        'available': available,
+        'available_usdt_equivalent': available * coin_rate,
+        'coin_rate': coin_rate,
         'profit_bonus_coins': profit_bonus,
         'breakdown': breakdown,
     })
