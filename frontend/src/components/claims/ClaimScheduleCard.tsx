@@ -282,7 +282,7 @@ export function ClaimScheduleCard({
       <CardContent>
         <ClaimPipelineHero schedule={schedule} />
         <p className="text-xs text-muted-foreground mb-3">
-          Total includes admin profit on your deposit. Staged payouts: 50% after 72h, then 25% + 25% (24h each) — instant wallet credit. Withdrawals still need admin approval.
+          Total includes admin profit on your deposit. Staged payouts: 50% after 72h, then 25% + 25% (24h each) — instant wallet credit.
         </p>
         <div className="flex flex-wrap gap-3">
           {schedule.stages.map((stage) => (
