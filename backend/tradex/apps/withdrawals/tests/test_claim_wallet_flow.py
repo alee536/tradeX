@@ -79,9 +79,9 @@ class ClaimWalletFlowTests(TestCase):
         before, _, _ = get_available_balance(self.user)
         claim = create_claim(self.user, self.purchase, 1)
         after, wallet_coins, _ = get_available_balance(self.user)
-        self.assertEqual(wallet_coins, float(claim.amount_coins))
-        self.assertGreater(after, before)
-        self.assertEqual(total_claimed_coins(self.user), float(claim.amount_coins))
+        self.assertEqual(float(wallet_coins), float(claim.amount_coins))
+        self.assertGreater(float(after), float(before))
+        self.assertEqual(float(total_claimed_coins(self.user)), float(claim.amount_coins))
 
     def test_tc03_duplicate_claim_same_stage_blocked(self):
         """TC-03: Cannot claim the same stage twice."""
@@ -95,7 +95,7 @@ class ClaimWalletFlowTests(TestCase):
         available, _, _ = get_available_balance(self.user)
         withdrawal = Withdrawal.objects.create(
             user=self.user,
-            amount=Decimal(str(min(10, available))),
+            amount=Decimal(str(min(Decimal('10'), available))),
             wallet_address='0xwithdrawdest',
         )
         self.assertEqual(withdrawal.status, 'pending')
@@ -109,7 +109,7 @@ class ClaimWalletFlowTests(TestCase):
         client.force_authenticate(user=self.user)
         response = client.post(
             '/api/withdrawals',
-            {'amount': available + 1000, 'wallet_address': '0xtoomuch'},
+            {'amount': str(Decimal(str(available)) + Decimal('1000')), 'wallet_address': '0xtoomuch'},
             format='json',
         )
         self.assertEqual(response.status_code, 400)
@@ -125,4 +125,4 @@ class ClaimWalletFlowTests(TestCase):
         create_claim(self.user, self.purchase, 1)
         claim2 = create_claim(self.user, self.purchase, 2)
         self.assertEqual(claim2.status, 'approved')
-        self.assertEqual(total_claimed_coins(self.user), 75.0)  # 50% + 25% of 100
+        self.assertEqual(float(total_claimed_coins(self.user)), 75.0)  # 50% + 25% of 100

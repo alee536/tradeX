@@ -374,11 +374,12 @@ def reject_claim(claim, reason):
 
 def total_claimed_coins(user):
     """Sum of approved claim amounts (in-app wallet balance from staged claims)."""
-    from .models import PurchaseClaim
     from django.db.models import Sum
+
+    from .models import PurchaseClaim
 
     total = PurchaseClaim.objects.filter(
         user=user,
         status='approved',
     ).aggregate(total=Sum('amount_coins'))['total']
-    return float(total or 0)
+    return Decimal(str(total or 0)).quantize(Decimal('0.00000001'))
