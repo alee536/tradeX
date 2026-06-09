@@ -45,6 +45,21 @@ export default function Login() {
     }
   }, [isAuthenticated, setLocation]);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("session") === "expired") {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again to continue.",
+        variant: "destructive",
+      });
+      params.delete("session");
+      const next = params.get("next");
+      const query = next ? `?next=${next}` : "";
+      window.history.replaceState({}, "", `/login${query}`);
+    }
+  }, [toast]);
+
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },

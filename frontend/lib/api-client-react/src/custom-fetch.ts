@@ -7,6 +7,7 @@ export type ErrorType<T = unknown> = ApiError<T>;
 export type BodyType<T> = T;
 
 export type AuthTokenGetter = () => Promise<string | null> | string | null;
+export type UnauthorizedHandler = () => void;
 
 const NO_BODY_STATUS = new Set([204, 205, 304]);
 const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
@@ -22,6 +23,30 @@ let _authTokenGetter: AuthTokenGetter | null = () => {
   }
   return null;
 };
+let _unauthorizedHandler: UnauthorizedHandler | null = null;
+let _unauthorizedHandling = false;
+
+const PUBLIC_AUTH_PATH_SUFFIXES = [
+  "/auth/login",
+  "/auth/register",
+  "/auth/password-reset",
+  "/health",
+];
+
+export function isPublicAuthRequest(url: string): boolean {
+  const path = url.split("?")[0] ?? url;
+  return PUBLIC_AUTH_PATH_SUFFIXES.some(
+    (suffix) => path.endsWith(suffix) || path.includes(suffix),
+  );
+}
+
+export function shouldHandleUnauthorized(
+  status: number,
+  requestUrl: string,
+  hadBearerToken: boolean,
+): boolean {
+  return hadBearerToken && status === 401 && !isPublicAuthRequest(requestUrl);
+}
 
 /**
  * Set a base URL that is prepended to every relative request URL
@@ -47,6 +72,20 @@ export function setBaseUrl(url: string | null): void {
  */
 export function setAuthTokenGetter(getter: AuthTokenGetter | null): void {
   _authTokenGetter = getter;
+}
+
+/**
+ * Called once when an authenticated API request receives HTTP 401
+ * (e.g. expired or invalid JWT). Used to clear session and redirect to login.
+ */
+export function setUnauthorizedHandler(handler: UnauthorizedHandler | null): void {
+  _unauthorizedHandler = handler;
+}
+
+function triggerUnauthorizedHandler(): void {
+  if (_unauthorizedHandling) return;
+  _unauthorizedHandling = true;
+  _unauthorizedHandler?.();
 }
 
 function isRequest(input: RequestInfo | URL): input is Request {
@@ -371,10 +410,17 @@ export async function customFetch<T = unknown>(
 
   const requestInfo = { method, url: resolveUrl(input) };
 
+  const hadBearerToken =
+    headers.has("authorization") &&
+    (headers.get("authorization") ?? "").startsWith("Bearer ");
+
   const response = await fetch(input, { ...init, method, headers });
 
   if (!response.ok) {
     const errorData = await parseErrorBody(response, method);
+    if (shouldHandleUnauthorized(response.status, requestInfo.url, hadBearerToken)) {
+      triggerUnauthorizedHandler();
+    }
     throw new ApiError(response, errorData, requestInfo);
   }
 
