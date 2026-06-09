@@ -1,5 +1,12 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { UserProfile, AuthResponse, LoginInput, RegisterInput } from "@workspace/api-client-react";
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { UserProfile, AuthResponse, setUnauthorizedHandler } from "@workspace/api-client-react";
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  clearAuthSession,
+  getStoredAuthToken,
+  redirectToLoginAfterSessionExpiry,
+} from "@/lib/auth-session";
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -17,16 +24,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearSession = useCallback(() => {
+    clearAuthSession();
+    setToken(null);
+    setUser(null);
+  }, []);
+
+  const logout = useCallback(() => {
+    clearSession();
+    window.location.href = "/login";
+  }, [clearSession]);
+
+  const handleSessionExpired = useCallback(() => {
+    clearSession();
+    redirectToLoginAfterSessionExpiry();
+  }, [clearSession]);
+
   useEffect(() => {
-    const storedToken = localStorage.getItem("24tradex_token");
-    const storedUser = localStorage.getItem("24tradex_user");
+    setUnauthorizedHandler(handleSessionExpired);
+    return () => setUnauthorizedHandler(null);
+  }, [handleSessionExpired]);
+
+  useEffect(() => {
+    const storedToken = getStoredAuthToken();
+    const storedUser = localStorage.getItem(AUTH_USER_KEY);
 
     const bootstrapAuth = async () => {
       if (storedToken && storedUser) {
         try {
           setToken(storedToken);
-          const cachedUser = JSON.parse(storedUser);
-          setUser(cachedUser);
+          setUser(JSON.parse(storedUser));
 
           const response = await fetch("/api/profile", {
             headers: {
@@ -37,13 +64,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (response.ok) {
             const profile = await response.json();
             setUser(profile);
-            localStorage.setItem("24tradex_user", JSON.stringify(profile));
+            localStorage.setItem(AUTH_USER_KEY, JSON.stringify(profile));
+          } else if (response.status === 401) {
+            clearSession();
           }
-        } catch (e) {
-          localStorage.removeItem("24tradex_token");
-          localStorage.removeItem("24tradex_user");
-          setToken(null);
-          setUser(null);
+        } catch {
+          clearSession();
         }
       }
 
@@ -51,21 +77,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     void bootstrapAuth();
-  }, []);
+  }, [clearSession]);
 
   const login = (data: AuthResponse) => {
     setToken(data.token);
     setUser(data.user);
-    localStorage.setItem("24tradex_token", data.token);
-    localStorage.setItem("24tradex_user", JSON.stringify(data.user));
-  };
-
-  const logout = () => {
-    setToken(null);
-    setUser(null);
-    localStorage.removeItem("24tradex_token");
-    localStorage.removeItem("24tradex_user");
-    window.location.href = "/login";
+    localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+    localStorage.setItem(AUTH_USER_KEY, JSON.stringify(data.user));
   };
 
   return (
